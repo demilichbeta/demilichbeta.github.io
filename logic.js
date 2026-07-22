@@ -24,7 +24,9 @@
     THREE_AM: [...STATION_GROUPS.CS, ...STATION_GROUPS.SS, ...STATION_GROUPS.KS],
     FIVE_AM: [...STATION_GROUPS.ET, ...STATION_GROUPS.HT, ...STATION_GROUPS.NS, ...STATION_GROUPS.TS, ...STATION_GROUPS.YT],
   };
-  const RETURN_SOURCES = ['DC9', 'DC4', 'DC11', 'CS12', 'SDC', 'DC2', 'NS2', 'NS1', 'DC12'];
+  // 04:30 的『全部＋1』只套用 NS／TS；03:00 系列與少量例外站不納入。
+  const ONLINE_BULK_STATIONS = [...STATION_GROUPS.NS, ...STATION_GROUPS.TS];
+  const RETURN_SOURCES = ['DC9', 'DC4', 'DC11', 'CS12', 'SDC', 'DC2', 'NS2', 'NS5', 'NS1', 'DC12'];
 
   const CARRIERS = ['cage', 'pallet'];
   const CARRIER_LABELS = { cage: '籠車', pallet: '棧板' };
@@ -39,7 +41,7 @@
 
   const CATEGORIES = ['morning', 'night', 'transit', 'loaded', 'online', 'actual'];
   const CATEGORY_LABELS = {
-    morning: '早班',
+    morning: '中班',
     night: '夜班',
     transit: '過境',
     loaded: '載走',
@@ -91,9 +93,10 @@
       status: 'active',
       events: [],
       returnEvents: [],
+      returnNotes: [],
       returnBatches: [],
       returnCounts: {},
-      schemaVersion: 5,
+      schemaVersion: 6,
     };
     if (previousMorning) {
       const operationId = uid('copy');
@@ -106,7 +109,7 @@
           if (value > 0) {
             shift.events.push({
               id: uid('evt'), operationId, timestamp: nowIso(), station, category: 'morning', carrier,
-              delta: value, after: value, note: '複製上一班早班數量',
+              delta: value, after: value, note: '複製上一班中班數量',
             });
           }
         });
@@ -125,9 +128,11 @@
     if (!Array.isArray(shift.events)) shift.events = [];
     if (!Array.isArray(shift.returnBatches)) shift.returnBatches = [];
     if (!Array.isArray(shift.returnEvents)) shift.returnEvents = [];
+    if (!Array.isArray(shift.returnNotes)) shift.returnNotes = [];
 
     shift.events.forEach((event) => {
       event.carrier = normalizeCarrier(event.carrier, event.station);
+      event.note = String(event.note || '').replaceAll('早班', '中班');
       if (!event.operationId) event.operationId = event.id || uid('op');
     });
 
@@ -168,7 +173,15 @@
       }))
       .filter((event) => event.delta > 0);
 
-    shift.schemaVersion = 5;
+    shift.returnNotes = shift.returnNotes
+      .filter((item) => item && String(item.text || '').trim())
+      .map((item) => ({
+        id: item.id || uid('rnote'),
+        timestamp: item.timestamp || migrationTimestamp(shift),
+        text: String(item.text || '').trim(),
+      }));
+
+    shift.schemaVersion = 6;
     recomputeEventAfters(shift);
     return shift;
   }
@@ -318,20 +331,20 @@
     return total;
   }
 
-  function addOnlineToStations(shift, stations = REPORT_GROUPS.FIVE_AM, amount = 1) {
+  function addOnlineToStations(shift, stations = ONLINE_BULK_STATIONS, amount = 1) {
     const targetStations = stations.filter((station) => STATIONS.includes(station));
     const qty = Math.max(1, Number(amount || 1));
     const operationId = uid('online-bulk');
     const timestamp = nowIso();
     targetStations.forEach((station) => addEvent(shift, {
       station, category: 'online', carrier: defaultCarrierForStation(station), delta: qty,
-      note: '05:00 回報站所全部線上加一', timestamp, operationId,
+      note: '04:30 NS／TS 全部線上加一', timestamp, operationId,
     }));
     return { stations: targetStations.length, quantity: targetStations.length * qty };
   }
 
   function addOnlineToAllStations(shift, amount = 1) {
-    return addOnlineToStations(shift, REPORT_GROUPS.FIVE_AM, amount);
+    return addOnlineToStations(shift, ONLINE_BULK_STATIONS, amount);
   }
 
   function convertAllOnlineToNight(shift) {
@@ -459,19 +472,43 @@
     return { key: `${localDate(start)}T${hhmm(start)}`, label: `${hhmm(start)}–${hhmm(end)}`, start: start.toISOString() };
   }
 
+  function addReturnNote(shift, text, timestamp = nowIso()) {
+    migrateShift(shift);
+    const cleanText = String(text || '').trim();
+    if (!cleanText) throw new Error('請輸入回倉備註');
+    const note = { id: uid('rnote'), timestamp, text: cleanText };
+    shift.returnNotes.push(note);
+    return note;
+  }
+
+  function deleteReturnNote(shift, noteId) {
+    migrateShift(shift);
+    const before = shift.returnNotes.length;
+    shift.returnNotes = shift.returnNotes.filter((item) => item.id !== noteId);
+    if (shift.returnNotes.length === before) throw new Error('找不到回倉備註');
+    return true;
+  }
+
   function computeReturnBuckets(shift) {
     migrateShift(shift);
     const buckets = {};
+    const ensureBucket = (timestamp) => {
+      const bucket = halfHourBucket(timestamp);
+      if (!buckets[bucket.key]) buckets[bucket.key] = { ...bucket, total: 0, cage: 0, pallet: 0, sources: {}, notes: [] };
+      return buckets[bucket.key];
+    };
     shift.returnEvents.forEach((event) => {
-      const bucket = halfHourBucket(event.timestamp);
-      if (!buckets[bucket.key]) buckets[bucket.key] = { ...bucket, total: 0, cage: 0, pallet: 0, sources: {} };
-      const target = buckets[bucket.key];
+      const target = ensureBucket(event.timestamp);
       if (!target.sources[event.source]) target.sources[event.source] = { cage: 0, pallet: 0, total: 0 };
       target.sources[event.source][event.carrier] += event.delta;
       target.sources[event.source].total += event.delta;
       target[event.carrier] += event.delta;
       target.total += event.delta;
     });
+    shift.returnNotes.forEach((note) => {
+      ensureBucket(note.timestamp).notes.push(note);
+    });
+    Object.values(buckets).forEach((bucket) => bucket.notes.sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp))));
     return Object.values(buckets).sort((a, b) => a.start.localeCompare(b.start));
   }
 
@@ -499,18 +536,30 @@
 
   function makeReturnBatchCSV(shift) {
     migrateShift(shift);
-    const rows = [['日期', '時間', '30分鐘時段', '來源', '載具', '數量']];
-    shift.returnEvents.slice().sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp))).forEach((event) => {
-      const date = new Date(event.timestamp);
-      rows.push([
-        date.toLocaleDateString('zh-TW'), date.toLocaleTimeString('zh-TW', { hour12: false }),
-        halfHourBucket(event.timestamp).label, event.source, CARRIER_LABELS[event.carrier], event.delta,
-      ]);
+    const rows = [['日期', '時間', '30分鐘時段', '來源', '載具', '數量', '備註']];
+    const records = [
+      ...shift.returnEvents.map((event) => ({ type: 'event', timestamp: event.timestamp, event })),
+      ...shift.returnNotes.map((note) => ({ type: 'note', timestamp: note.timestamp, note })),
+    ].sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp)));
+    records.forEach((record) => {
+      const date = new Date(record.timestamp);
+      if (record.type === 'event') {
+        const event = record.event;
+        rows.push([
+          date.toLocaleDateString('zh-TW'), date.toLocaleTimeString('zh-TW', { hour12: false }),
+          halfHourBucket(event.timestamp).label, event.source, CARRIER_LABELS[event.carrier], event.delta, event.note || '',
+        ]);
+      } else {
+        rows.push([
+          date.toLocaleDateString('zh-TW'), date.toLocaleTimeString('zh-TW', { hour12: false }),
+          halfHourBucket(record.note.timestamp).label, '備註', '', '', record.note.text,
+        ]);
+      }
     });
     const totals = computeReturnCounts(shift);
-    rows.push(['', '', '', '合計', '籠車', totals.carrierTotals.cage]);
-    rows.push(['', '', '', '合計', '棧板', totals.carrierTotals.pallet]);
-    rows.push(['', '', '', '全部合計', '', totals.carrierTotals.total]);
+    rows.push(['', '', '', '合計', '籠車', totals.carrierTotals.cage, '']);
+    rows.push(['', '', '', '合計', '棧板', totals.carrierTotals.pallet, '']);
+    rows.push(['', '', '', '全部合計', '', totals.carrierTotals.total, '']);
     return '\ufeff' + rows.map((row) => row.map(csvEscape).join(',')).join('\n');
   }
 
@@ -524,7 +573,7 @@
     const lines = [`${title}｜${shift.date}`];
     stations.forEach((station) => {
       const s = stats[station];
-      lines.push(`${station}：早${s.morning}／夜${s.night}／過${s.transit}｜總${s.reportTotal}（籠${cageStats[station].reportTotal}／板${palletStats[station].reportTotal}）`);
+      lines.push(`${station}：中${s.morning}／夜${s.night}／過${s.transit}｜總${s.reportTotal}（籠${cageStats[station].reportTotal}／板${palletStats[station].reportTotal}）`);
     });
     const total = stations.reduce((sum, station) => sum + stats[station].reportTotal, 0);
     lines.push(`合計：${total}`);
@@ -551,26 +600,27 @@
         .filter(([, value]) => value.total > 0)
         .map(([source, value]) => `${source} ${value.total}（籠${value.cage}／板${value.pallet}）`)
         .join('、');
-      lines.push(`${bucket.label}｜${details || '無'}`);
+      const noteText = bucket.notes?.length ? `｜備註：${bucket.notes.map((item) => item.text).join('；')}` : '';
+      lines.push(`${bucket.label}｜${details || '無'}${noteText}`);
     });
     lines.push(`回倉合計：${returns.carrierTotals.total}（籠${returns.carrierTotals.cage}／板${returns.carrierTotals.pallet}）`);
     lines.push('', '站所統計：');
     STATIONS.forEach((station) => {
       const s = stats[station];
-      lines.push(`${station}｜早${s.morning}｜夜${s.night}｜過${s.transit}｜線${s.online}｜回報${s.reportTotal}（籠${cageStats[station].reportTotal}／板${palletStats[station].reportTotal}）｜載${s.loaded}｜應有${s.expected}｜現${s.actual}｜差${s.difference}`);
+      lines.push(`${station}｜中${s.morning}｜夜${s.night}｜過${s.transit}｜線${s.online}｜回報${s.reportTotal}（籠${cageStats[station].reportTotal}／板${palletStats[station].reportTotal}）｜載${s.loaded}｜應有${s.expected}｜現${s.actual}｜差${s.difference}`);
     });
     return lines.join('\n');
   }
 
   return {
-    CHUTES, STATIONS, GROUP_ORDER, STATION_GROUPS, REPORT_GROUPS, RETURN_SOURCES,
+    CHUTES, STATIONS, GROUP_ORDER, STATION_GROUPS, REPORT_GROUPS, ONLINE_BULK_STATIONS, RETURN_SOURCES,
     CARRIERS, CARRIER_LABELS, CAGE_DEFAULT_STATIONS, CATEGORIES, CATEGORY_LABELS,
     uid, nowIso, localDate, naturalStationSort, defaultCarrierForStation, otherCarrier, normalizeCarrier,
     createShift, migrateShift, emptyCounts, computeCounts, countFor, recomputeEventAfters,
     stationStats, computeAllStats, computeTotals, addEvent, setCount, chooseCarrierToDecrement,
     convertOnlineToNight, addOnlineToStations, addOnlineToAllStations, convertAllOnlineToNight,
     undoLastOperation, undoOperation, editEvent, deleteEvent,
-    adjustReturnCount, computeReturnCounts, halfHourBucket, computeReturnBuckets, currentReturnBucket,
+    adjustReturnCount, computeReturnCounts, halfHourBucket, addReturnNote, deleteReturnNote, computeReturnBuckets, currentReturnBucket,
     csvEscape, makeShiftCSV, makeReturnBatchCSV, makeReportText, makeWorkLogText,
   };
 });

@@ -1047,3 +1047,75 @@ button { touch-action: manipulation; }
   .dual-count-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .filter-row.events-four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
+
+/* v6：字母分類、回倉備註、NS／TS 線上批次 */
+.bottom-nav { grid-template-columns: repeat(4, 1fr); }
+.full-width-select {
+  width: 100%;
+  min-height: 50px;
+  margin-top: 10px;
+  padding: 0 12px;
+  border: 1px solid #3a4a64;
+  border-radius: 11px;
+  background: #09111f;
+  color: var(--text);
+  font-weight: 800;
+}
+.online-chute-section { margin: 16px 0; }
+.online-chute-title {
+  margin: 0 2px 8px;
+  color: #8797ae;
+  font-size: .86rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+}
+.return-note-card textarea {
+  width: 100%;
+  min-height: 84px;
+  margin: 9px 0;
+  padding: 11px;
+  resize: vertical;
+  border: 1px solid #3a4a64;
+  border-radius: 11px;
+  background: #09111f;
+  color: var(--text);
+  line-height: 1.45;
+}
+.return-notes {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #2b3850;
+}
+.return-notes h4 {
+  margin: 0 0 5px;
+  color: var(--muted);
+  font-size: .72rem;
+}
+.return-note-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: start;
+  margin-top: 5px;
+  padding: 7px;
+  border-radius: 9px;
+  background: rgba(245, 158, 11, .08);
+  border: 1px solid rgba(245, 158, 11, .28);
+}
+.return-note-item span {
+  color: #fde68a;
+  font-size: .76rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.return-note-item span b { margin-right: 6px; color: #fbbf24; }
+.return-note-delete {
+  min-height: 34px;
+  padding: 0 9px;
+  border: 1px solid #7f1d1d;
+  border-radius: 8px;
+  background: #3f1720;
+  color: #fecaca;
+  font-size: .7rem;
+  font-weight: 800;
+}

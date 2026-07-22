@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'night-pallet-counter-v5.0.0';
+const CACHE_NAME = 'night-pallet-counter-v6.0.0';
 const APP_SHELL = [
   './',
   './index.html',
