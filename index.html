@@ -5,58 +5,47 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#111827">
   <meta name="color-scheme" content="dark">
-  <meta name="description" content="物流夜班棧板點貨、回倉紀錄與快速回報工具">
+  <meta name="description" content="物流夜班籠車與棧板點貨、回倉、盤點與回報工具">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" sizes="192x192">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="stylesheet" href="styles.css">
-  <title>夜班點貨 v4</title>
+  <title>夜班點貨 v5</title>
 </head>
 <body>
   <div id="app" class="app-shell">
     <header class="topbar">
       <button id="menuBtn" class="icon-btn" aria-label="開啟功能選單">☰</button>
-      <div class="title-wrap">
-        <h1 id="pageTitle">夜班產出</h1>
-        <p id="shiftLabel">載入中…</p>
-      </div>
+      <div class="title-wrap"><h1 id="pageTitle">夜班產出</h1><p id="shiftLabel">載入中…</p></div>
       <button id="installBtn" class="install-btn hidden">安裝</button>
     </header>
-
     <div class="safety-banner">⚠ 電拖完全停止後再操作</div>
-
     <main id="mainContent" tabindex="-1"></main>
 
     <div id="undoBar" class="undo-bar hidden" role="status">
       <span id="undoMessage">已新增</span>
-      <div class="undo-actions">
-        <button id="undoBtn">復原上一筆</button>
-        <button id="undoCloseBtn" class="undo-close" aria-label="關閉復原提示">✕</button>
-      </div>
+      <div class="undo-actions"><button id="undoBtn">復原上一筆</button><button id="undoCloseBtn" class="undo-close" aria-label="關閉復原提示">✕</button></div>
     </div>
 
     <nav class="bottom-nav" aria-label="主要功能">
       <button data-view="night" class="nav-btn active"><span>＋1</span>夜班</button>
-      <button data-view="loaded" class="nav-btn"><span>⇢</span>載走</button>
+      <button data-view="online" class="nav-btn"><span>⌛</span>線上</button>
       <button data-view="inventory" class="nav-btn"><span>⌗</span>盤點</button>
       <button data-view="stats" class="nav-btn"><span>Σ</span>統計</button>
     </nav>
   </div>
 
   <aside id="drawer" class="drawer" aria-hidden="true">
-    <div class="drawer-head">
-      <strong>其他功能</strong>
-      <button id="closeDrawerBtn" class="icon-btn" aria-label="關閉功能選單">✕</button>
-    </div>
+    <div class="drawer-head"><strong>其他功能</strong><button id="closeDrawerBtn" class="icon-btn" aria-label="關閉功能選單">✕</button></div>
     <button data-view="morning" class="drawer-item">早班數量</button>
-    <button data-view="online" class="drawer-item">線上未退出</button>
     <button data-view="transit" class="drawer-item">過境貨</button>
+    <button data-view="loaded" class="drawer-item">提前載走</button>
     <button data-view="reports" class="drawer-item">03:00 快速回報</button>
     <button data-view="returns" class="drawer-item">回倉紀錄</button>
     <button data-view="events" class="drawer-item">事件紀錄</button>
     <button data-view="shifts" class="drawer-item">班次／備份</button>
     <button id="wakeLockBtn" class="drawer-item">保持螢幕喚醒：關</button>
-    <div class="drawer-version">版本 v4.0</div>
+    <div class="drawer-version">版本 v5.0</div>
   </aside>
   <div id="drawerBackdrop" class="backdrop hidden"></div>
 
@@ -66,41 +55,24 @@
       <input type="hidden" id="editEventId">
       <label>站所<select id="editEventStation"></select></label>
       <label>類別<select id="editEventCategory"></select></label>
+      <label>載具<select id="editEventCarrier"></select></label>
       <label>變動數量<input id="editEventDelta" type="number" step="1" required></label>
       <label>備註<input id="editEventNote" type="text" maxlength="60"></label>
-      <div class="dialog-actions">
-        <button value="cancel" class="secondary-btn">取消</button>
-        <button id="saveEventEditBtn" value="default" class="primary-btn">儲存</button>
-      </div>
+      <div class="dialog-actions"><button value="cancel" class="secondary-btn">取消</button><button id="saveEventEditBtn" value="default" class="primary-btn">儲存</button></div>
     </form>
   </dialog>
 
   <dialog id="quantityDialog" class="modal">
     <form method="dialog" id="quantityForm">
-      <h2 id="quantityTitle">新增數量</h2>
-      <p id="quantityStationLabel"></p>
-      <input type="hidden" id="quantityStation">
-      <input type="hidden" id="quantityCategory">
-      <div id="quantityQuickButtons" class="quick-qty">
-        <button type="button" data-qty="-1" class="transit-only quantity-minus">−1</button>
-        <button type="button" data-qty="1">+1</button>
-        <button type="button" data-qty="2" class="loaded-only">+2</button>
-        <button type="button" data-qty="3" class="loaded-only">+3</button>
-        <button type="button" data-qty="5" class="loaded-only">+5</button>
-      </div>
-      <label id="customQtyWrap" class="loaded-only">自訂數量<input id="customQty" type="number" min="1" step="1" inputmode="numeric" placeholder="輸入板數"></label>
-      <div class="dialog-actions">
-        <button value="cancel" class="secondary-btn">取消</button>
-        <button id="saveQuantityBtn" value="default" class="primary-btn">加入</button>
-      </div>
+      <h2 id="quantityTitle">新增數量</h2><p id="quantityStationLabel"></p>
+      <input type="hidden" id="quantityStation"><input type="hidden" id="quantityCategory"><input type="hidden" id="quantityCarrier">
+      <div id="quantityQuickButtons" class="quick-qty"><button type="button" data-qty="1">+1</button><button type="button" data-qty="2">+2</button><button type="button" data-qty="3">+3</button><button type="button" data-qty="5">+5</button></div>
+      <label>自訂數量<input id="customQty" type="number" min="1" step="1" inputmode="numeric" placeholder="輸入數量"></label>
+      <div class="dialog-actions"><button value="cancel" class="secondary-btn">取消</button><button id="saveQuantityBtn" value="default" class="primary-btn">加入</button></div>
     </form>
   </dialog>
 
-
-
   <div id="toast" class="toast hidden" role="status"></div>
-
-  <script src="logic.js"></script>
-  <script src="app.js"></script>
+  <script src="logic.js"></script><script src="app.js"></script>
 </body>
 </html>
