@@ -649,3 +649,143 @@ button { touch-action: manipulation; }
   .report-row { grid-template-columns: 56px repeat(4, minmax(0, 1fr)); gap: 4px; }
   .return-totals-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* v4：夜班修正、回倉簡化與四鍵底部導覽 */
+.bottom-nav { grid-template-columns: repeat(4, 1fr); }
+
+.undo-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.undo-bar .undo-close {
+  min-width: 42px;
+  padding: 9px 10px;
+  background: #26364b;
+  color: #dbeafe;
+}
+
+.night-mode-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+.night-mode-toggle {
+  min-width: 132px;
+  min-height: 52px;
+  padding: 8px 12px;
+}
+.night-correction-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.night-correction-card {
+  padding: 9px;
+  border: 1px solid #33445e;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #18243a, #111a2c);
+  text-align: center;
+}
+.night-correction-card > strong {
+  display: block;
+  font-size: 1.02rem;
+}
+.night-correction-card > span {
+  display: block;
+  margin: 5px 0 8px;
+  color: #7dd3fc;
+  font-size: 1.55rem;
+  font-weight: 900;
+}
+.night-correction-card > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+.night-correction-card button {
+  min-height: 50px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  color: var(--text);
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+.night-correct-minus,
+.return-minus {
+  background: #3f1720;
+  color: #fecaca !important;
+  border-color: #7f1d1d !important;
+}
+.night-correct-plus,
+.return-plus {
+  background: #075985;
+  color: #e0f2fe !important;
+  border-color: #0284c7 !important;
+}
+
+.return-source-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 12px;
+}
+.return-source-card {
+  padding: 10px;
+  border: 1px solid #33445e;
+  border-radius: 14px;
+  background: #111a2c;
+  text-align: center;
+}
+.return-source-card > strong {
+  display: block;
+  font-size: 1.05rem;
+}
+.return-source-card > span {
+  display: block;
+  margin: 6px 0 9px;
+  color: #7dd3fc;
+  font-size: 1.7rem;
+  font-weight: 900;
+}
+.return-source-card > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+.return-source-card button {
+  min-height: 54px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  font-size: 1.12rem;
+  font-weight: 900;
+}
+.return-grand-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.return-grand-total span { color: var(--muted); }
+.return-grand-total strong {
+  color: #7dd3fc;
+  font-size: 2rem;
+}
+.report-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+@media (max-width: 390px) {
+  .undo-bar {
+    align-items: flex-start;
+    font-size: .78rem;
+  }
+  .undo-actions { gap: 4px; }
+  .undo-bar button { padding: 9px 8px; }
+  .night-mode-card { grid-template-columns: 1fr; }
+  .night-mode-toggle { width: 100%; }
+}
+
+@media (min-width: 600px) {
+  .night-correction-grid,
+  .return-source-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}

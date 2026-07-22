@@ -16,8 +16,8 @@
     morning: '早班數量',
     online: '線上未退出',
     events: '事件紀錄',
-    reports: '快速回報',
-    returns: '回倉／過境批次',
+    reports: '03:00 快速回報',
+    returns: '回倉紀錄',
     shifts: '班次／備份',
   };
 
@@ -26,6 +26,8 @@
   let deferredInstallPrompt = null;
   let toastTimer = null;
   let wakeLock = null;
+  let nightUndoOperationId = null;
+  let undoDismissed = false;
 
   const el = (id) => document.getElementById(id);
   const main = el('mainContent');
@@ -33,11 +35,10 @@
   const backdrop = el('drawerBackdrop');
   const eventDialog = el('eventDialog');
   const quantityDialog = el('quantityDialog');
-  const returnBatchDialog = el('returnBatchDialog');
 
   function defaultState() {
     return {
-      version: 3,
+      version: 4,
       currentShiftId: null,
       shifts: [],
       activeView: 'night',
@@ -47,7 +48,7 @@
         eventStation: 'ALL',
         eventCategory: 'ALL',
         eventOrder: 'desc',
-        reportMode: 'THREE_AM',
+        nightCorrection: false,
       },
     };
   }
@@ -55,14 +56,14 @@
   function migrateAppState(rawState) {
     const base = defaultState();
     const migrated = rawState && typeof rawState === 'object' ? rawState : base;
-    migrated.version = 3;
+    migrated.version = 4;
     migrated.shifts = Array.isArray(migrated.shifts) ? migrated.shifts : [];
     migrated.shifts.forEach((shift) => L.migrateShift(shift));
     migrated.ui = { ...base.ui, ...(migrated.ui || {}) };
     const validViews = new Set(Object.keys(VIEW_TITLES));
     if (!validViews.has(migrated.activeView)) migrated.activeView = 'night';
     if (!['ALL', ...L.GROUP_ORDER].includes(migrated.ui.statsGroup)) migrated.ui.statsGroup = 'ALL';
-    if (!['THREE_AM', 'FIVE_AM'].includes(migrated.ui.reportMode)) migrated.ui.reportMode = 'THREE_AM';
+    migrated.ui.nightCorrection = false;
     if (migrated.currentShiftId && !migrated.shifts.some((shift) => shift.id === migrated.currentShiftId)) {
       migrated.currentShiftId = migrated.shifts[0]?.id || null;
     }
@@ -135,7 +136,7 @@
   function updateHeader() {
     const shift = currentShift();
     el('pageTitle').textContent = VIEW_TITLES[state.activeView] || '夜班點貨';
-    el('shiftLabel').textContent = shift ? `${shift.date}｜00:00–08:00｜${shift.events.length} 筆事件｜${shift.returnBatches?.length || 0} 批回倉` : '尚未建立班次';
+    el('shiftLabel').textContent = shift ? `${shift.date}｜00:00–08:00｜${shift.events.length} 筆事件｜回倉 ${L.computeReturnCounts(shift).total} 板` : '尚未建立班次';
     document.querySelectorAll('.nav-btn').forEach((button) => {
       button.classList.toggle('active', button.dataset.view === state.activeView);
     });
@@ -187,14 +188,29 @@
     button.classList.add('flash');
   }
 
-  function updateUndoBar(message = '') {
+  function hideUndoBar() {
+    el('undoBar').classList.add('hidden');
+  }
+
+  function updateUndoBar(message = '', operationId = null) {
     const shift = currentShift();
     const bar = el('undoBar');
-    if (!shift || !shift.events.length) {
+    if (state.activeView !== 'night' || !shift || undoDismissed) {
       bar.classList.add('hidden');
       return;
     }
-    const last = shift.events.slice().sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp))).at(-1);
+    if (operationId) nightUndoOperationId = operationId;
+    if (!nightUndoOperationId) {
+      bar.classList.add('hidden');
+      return;
+    }
+    const related = shift.events.filter((event) => (event.operationId || event.id) === nightUndoOperationId);
+    if (!related.length) {
+      nightUndoOperationId = null;
+      bar.classList.add('hidden');
+      return;
+    }
+    const last = related.at(-1);
     el('undoMessage').textContent = message || `上一筆：${last.station} ${categoryLabel(last.category)} ${last.delta > 0 ? '+' : ''}${last.delta}`;
     bar.classList.remove('hidden');
   }
@@ -208,13 +224,18 @@
       return null;
     }
     const event = L.addEvent(shift, { station, category, delta, note });
+    const isNightAction = state.activeView === 'night' && category === 'night';
+    if (isNightAction) {
+      nightUndoOperationId = event.operationId || event.id;
+      undoDismissed = false;
+    }
     await saveState();
     vibrate();
     const scrollPosition = window.scrollY;
     renderCurrentView();
     window.scrollTo(0, scrollPosition);
     requestAnimationFrame(() => flashStationButton(station));
-    updateUndoBar(`${station} ${categoryLabel(category)} ${delta > 0 ? '+' : ''}${delta}`);
+    if (isNightAction) updateUndoBar(`${station} 夜班 ${delta > 0 ? '+' : ''}${delta}`, nightUndoOperationId);
     showToast(`${station} ${categoryLabel(category)} ${delta > 0 ? '+' : ''}${delta}`);
     return event;
   }
@@ -233,19 +254,64 @@
       </section>`).join('');
   }
 
+  function nightCorrectionHtml(counts) {
+    return L.CHUTES.map((chute) => `
+      <section class="page-section">
+        <h2 class="section-title">${chute.name}<small>${chute.stations.length}站</small></h2>
+        <div class="night-correction-grid">
+          ${chute.stations.map((station) => `
+            <div class="night-correction-card" data-station-card="${station}">
+              <strong>${station}</strong>
+              <span>${counts[station].night}</span>
+              <div>
+                <button type="button" class="night-correct-minus" data-night-correct="-1" data-station="${station}" aria-label="${station} 夜班減一">−1</button>
+                <button type="button" class="night-correct-plus" data-night-correct="1" data-station="${station}" aria-label="${station} 夜班加一">＋1</button>
+              </div>
+            </div>`).join('')}
+        </div>
+      </section>`).join('');
+  }
+
   function renderNight() {
     const shift = requireShift();
     if (!shift) return;
     const counts = L.computeCounts(shift);
+    const correction = state.ui.nightCorrection;
     main.innerHTML = `
-      <section class="card">
-        <strong>退出板完成蓋章後，按對應站所一次。</strong>
-        <p class="small-note">按鈕會震動並自動記錄時間；誤按可用下方「復原上一筆」。</p>
+      <section class="card night-mode-card">
+        <div>
+          <strong>${correction ? '夜班板數修正模式' : '退出板完成蓋章後，按對應站所一次。'}</strong>
+          <p class="small-note">${correction
+            ? '直接對任何站所加一或減一，不必逐步復原後面的紀錄。'
+            : '誤按可立即復原；較早的板數請使用「修正前面板數」。'}</p>
+        </div>
+        <button type="button" class="${correction ? 'primary-btn' : 'secondary-btn'} night-mode-toggle" data-toggle-night-correction>
+          ${correction ? '返回快速＋1' : '修正前面板數'}
+        </button>
       </section>
-      ${stationButtonsHtml('night', counts)}`;
-    main.querySelectorAll('[data-category="night"]').forEach((button) => {
-      button.addEventListener('click', () => addSingle(button.dataset.station, 'night', 1));
+      ${correction ? nightCorrectionHtml(counts) : stationButtonsHtml('night', counts)}`;
+
+    main.querySelector('[data-toggle-night-correction]').addEventListener('click', async () => {
+      state.ui.nightCorrection = !state.ui.nightCorrection;
+      await saveState();
+      renderCurrentView();
     });
+
+    if (correction) {
+      main.querySelectorAll('[data-night-correct]').forEach((button) => {
+        button.addEventListener('click', () => addSingle(
+          button.dataset.station,
+          'night',
+          Number(button.dataset.nightCorrect),
+          '夜班前面板數修正'
+        ));
+      });
+    } else {
+      main.querySelectorAll('[data-category="night"]').forEach((button) => {
+        button.addEventListener('click', () => addSingle(button.dataset.station, 'night', 1));
+      });
+    }
+    updateUndoBar();
   }
 
   function openQuantity(station, category) {
@@ -331,7 +397,6 @@
       await saveState();
       vibrate(80);
       renderCurrentView();
-      updateUndoBar(`NS／TS 全部 ${result.stations} 站線上 +1`);
       showToast(`NS／TS 全部 ${result.stations} 站已加 1`);
     });
 
@@ -341,7 +406,6 @@
         await saveState();
         vibrate(90);
         renderCurrentView();
-        updateUndoBar(`${result.stations} 站共 ${result.quantity} 板轉完成`);
         showToast(`已將 ${result.quantity} 板全部轉完成`);
       } catch (error) {
         showToast(error.message);
@@ -364,7 +428,6 @@
           await saveState();
           vibrate(65);
           renderCurrentView();
-          updateUndoBar(`${station} 線上 1 板轉夜班完成`);
           showToast(`${station} 已轉夜班完成`);
         } catch (error) {
           showToast(error.message);
@@ -424,7 +487,6 @@
         if (event) {
           await saveState();
           updateHeader();
-          updateUndoBar(`${station} ${categoryLabel(category)} 設為 ${newValue}`);
           showToast(`${station} 已保存`);
           if (category === 'actual') {
             const current = L.computeAllStats(shift)[station];
@@ -530,168 +592,76 @@
     if (!shift) return;
     const stats = L.computeAllStats(shift);
     const totals = L.computeTotals(shift);
-    const mode = state.ui.reportMode;
-    const stations = L.REPORT_GROUPS[mode];
-    const groups = mode === 'THREE_AM' ? ['CS', 'SS', 'KS'] : ['NS', 'TS'];
-    const title = mode === 'THREE_AM' ? '03:00｜CS／SS／KS' : '05:00｜NS／TS';
+    const stations = L.REPORT_GROUPS.THREE_AM;
+    const groups = ['CS', 'SS', 'KS'];
+    const title = '03:00｜CS／SS／KS';
 
     main.innerHTML = `
       <section class="card">
-        <strong>派車快速回報</strong>
-        <p class="small-note">直接讀取早班、夜班、過境及總數。複製按鈕會產生可貼到訊息或照讀的文字。</p>
-        <div class="report-mode-switch">
-          <button type="button" data-report-mode="THREE_AM" class="${mode === 'THREE_AM' ? 'active' : ''}">03:00</button>
-          <button type="button" data-report-mode="FIVE_AM" class="${mode === 'FIVE_AM' ? 'active' : ''}">05:00</button>
-        </div>
+        <strong>03:00 派車快速回報</strong>
+        <p class="small-note">直接讀取早班、夜班、過境及總數。05:00 請直接使用統計總表。</p>
       </section>
       <div class="report-summary">
-        <div class="total-card"><span>${title} 合計</span><strong>${mode === 'THREE_AM' ? totals.REPORT03.reportTotal : totals.REPORT05.reportTotal}</strong></div>
+        <div class="total-card"><span>${title} 合計</span><strong>${totals.REPORT03.reportTotal}</strong></div>
         ${groups.map((group) => `<div class="total-card"><span>${group}</span><strong>${totals[group].reportTotal}</strong></div>`).join('')}
       </div>
-      <button type="button" id="copyReportBtn" class="primary-btn full-width report-copy-btn">複製 ${title} 回報文字</button>
+      <button type="button" id="copyReportBtn" class="primary-btn full-width report-copy-btn">複製 03:00 回報文字</button>
       <div class="report-list">
         ${stations.map((station) => reportRow(station, stats)).join('')}
       </div>`;
 
-    main.querySelectorAll('[data-report-mode]').forEach((button) => {
-      button.addEventListener('click', async () => {
-        state.ui.reportMode = button.dataset.reportMode;
-        await saveState();
-        renderReports();
-      });
-    });
-    el('copyReportBtn').addEventListener('click', () => copyText(L.makeReportText(shift, mode), `${title} 回報已複製`));
-  }
-
-  function batchHtml(batch) {
-    const total = Number(batch.mixed || 0) + Number(batch.transit || 0);
-    return `
-      <article class="event-item return-batch-item">
-        <div class="event-main">
-          <strong>${escapeHtml(batch.source)}</strong>
-          <b>${formatTime(batch.timestamp)}</b>
-        </div>
-        <div class="batch-counts">
-          <span>待分 <b>${batch.mixed}</b></span>
-          <span>過境 <b>${batch.transit}</b></span>
-          <span>合計 <b>${total}</b></span>
-        </div>
-        ${batch.note ? `<div class="event-meta">${escapeHtml(batch.note)}</div>` : ''}
-        <div class="event-actions">
-          <button class="secondary-btn" data-edit-batch="${batch.id}">修改</button>
-          <button class="danger-btn" data-delete-batch="${batch.id}">刪除</button>
-        </div>
-      </article>`;
+    el('copyReportBtn').addEventListener('click', () => copyText(
+      L.makeReportText(shift, 'THREE_AM'),
+      '03:00 回報已複製'
+    ));
   }
 
   function renderReturns() {
     const shift = requireShift();
     if (!shift) return;
-    L.migrateShift(shift);
-    const totals = L.computeReturnBatchTotals(shift);
-    const differenceClass = totals.transitDifference === 0 ? 'difference-good' : 'difference-bad';
-    const batches = shift.returnBatches
-      .slice()
-      .sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)));
+    const returns = L.computeReturnCounts(shift);
+    const sources = [
+      ...L.RETURN_SOURCES,
+      ...Object.keys(returns.bySource).filter((source) => !L.RETURN_SOURCES.includes(source) && returns.bySource[source] > 0),
+    ];
 
     main.innerHTML = `
       <section class="card">
-        <strong>回倉／過境批次紀錄</strong>
-        <p class="small-note">記錄車輛回來時間、來源、待分及已分好站所的過境板數。這裡只記批次總數；各站所過境仍在「過境」頁調整。</p>
-        <div class="source-quick-buttons">
-          <button type="button" data-return-source="DC9">DC9</button>
-          <button type="button" data-return-source="DC4">DC4</button>
-          <button type="button" data-return-source="">其他</button>
+        <strong>回倉板數</strong>
+        <p class="small-note">只記各回倉來源的板數，不記時間或過境總數。按＋1新增，按−1修正。</p>
+        <div class="return-source-grid">
+          ${sources.map((source) => `
+            <div class="return-source-card">
+              <strong>${source}</strong>
+              <span>${returns.bySource[source] || 0}</span>
+              <div>
+                <button type="button" class="return-minus" data-return-change="-1" data-return-source="${source}" aria-label="${source} 回倉減一">−1</button>
+                <button type="button" class="return-plus" data-return-change="1" data-return-source="${source}" aria-label="${source} 回倉加一">＋1</button>
+              </div>
+            </div>`).join('')}
         </div>
-        <div class="return-form-grid">
-          <label>來源<input id="returnSource" type="text" maxlength="20" placeholder="例如 DC9" autocomplete="off"></label>
-          <label>待分板數<input id="returnMixed" type="number" min="0" step="1" inputmode="numeric" value="0"></label>
-          <label>過境板數<input id="returnTransit" type="number" min="0" step="1" inputmode="numeric" value="0"></label>
-          <label class="return-note">備註<input id="returnNote" type="text" maxlength="60" placeholder="可留白"></label>
-        </div>
-        <button id="addReturnBatchBtn" type="button" class="primary-btn full-width">現在時間新增回倉紀錄</button>
       </section>
-
-      <section class="card ${differenceClass}">
-        <div class="return-totals-grid">
-          <div><span>待分合計</span><b>${totals.mixed}</b></div>
-          <div><span>批次過境</span><b>${totals.transit}</b></div>
-          <div><span>站所過境</span><b>${totals.stationTransit}</b></div>
-          <div><span>過境差異</span><b>${totals.transitDifference}</b></div>
-        </div>
-        <p class="small-note">過境差異＝各站所過境加總－回倉批次過境。為 0 表示兩邊一致。</p>
-      </section>
-
-      <section>
-        <h2 class="section-title">今日回倉紀錄<small>${batches.length}批</small></h2>
-        ${batches.length ? batches.map(batchHtml).join('') : '<div class="empty-state card">尚無回倉紀錄。</div>'}
+      <section class="card return-grand-total">
+        <span>回倉總板數</span>
+        <strong>${returns.total}</strong>
       </section>`;
 
-    main.querySelectorAll('[data-return-source]').forEach((button) => {
-      button.addEventListener('click', () => {
-        el('returnSource').value = button.dataset.returnSource;
-        el('returnSource').focus();
+    main.querySelectorAll('[data-return-change]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const source = button.dataset.returnSource;
+        const delta = Number(button.dataset.returnChange);
+        try {
+          const count = L.adjustReturnCount(shift, source, delta);
+          await saveState();
+          vibrate(45);
+          showToast(`${source} 回倉 ${delta > 0 ? '+' : ''}${delta}，目前 ${count}`);
+          renderReturns();
+          updateHeader();
+        } catch (error) {
+          showToast(error.message);
+        }
       });
     });
-    el('addReturnBatchBtn').addEventListener('click', addReturnBatchFromForm);
-    main.querySelectorAll('[data-edit-batch]').forEach((button) => button.addEventListener('click', () => openReturnBatchEdit(button.dataset.editBatch)));
-    main.querySelectorAll('[data-delete-batch]').forEach((button) => button.addEventListener('click', () => removeReturnBatch(button.dataset.deleteBatch)));
-  }
-
-  async function addReturnBatchFromForm() {
-    const shift = currentShift();
-    try {
-      const batch = L.addReturnBatch(shift, {
-        source: el('returnSource').value,
-        mixed: Number(el('returnMixed').value || 0),
-        transit: Number(el('returnTransit').value || 0),
-        note: el('returnNote').value,
-      });
-      await saveState();
-      vibrate(60);
-      showToast(`${batch.source} 回倉紀錄已新增`);
-      renderReturns();
-    } catch (error) {
-      showToast(error.message, 3000);
-    }
-  }
-
-  function openReturnBatchEdit(batchId) {
-    const shift = currentShift();
-    const batch = shift.returnBatches.find((item) => item.id === batchId);
-    if (!batch) return;
-    el('editBatchId').value = batch.id;
-    el('editBatchSource').value = batch.source;
-    el('editBatchMixed').value = batch.mixed;
-    el('editBatchTransit').value = batch.transit;
-    el('editBatchNote').value = batch.note || '';
-    returnBatchDialog.showModal();
-  }
-
-  async function saveReturnBatchEdit(event) {
-    event.preventDefault();
-    try {
-      L.editReturnBatch(currentShift(), el('editBatchId').value, {
-        source: el('editBatchSource').value,
-        mixed: Number(el('editBatchMixed').value || 0),
-        transit: Number(el('editBatchTransit').value || 0),
-        note: el('editBatchNote').value,
-      });
-      await saveState();
-      returnBatchDialog.close();
-      showToast('回倉紀錄已修改');
-      renderReturns();
-    } catch (error) {
-      showToast(error.message, 3000);
-    }
-  }
-
-  async function removeReturnBatch(batchId) {
-    if (!window.confirm('確定刪除這筆回倉紀錄？')) return;
-    L.deleteReturnBatch(currentShift(), batchId);
-    await saveState();
-    showToast('回倉紀錄已刪除');
-    renderReturns();
   }
 
   function renderEvents() {
@@ -882,7 +852,7 @@
   function exportAllJSON() {
     const payload = {
       app: '夜班點貨',
-      schemaVersion: 3,
+      schemaVersion: 4,
       exportedAt: new Date().toISOString(),
       state,
     };
@@ -954,7 +924,7 @@
       case 'shifts': renderShifts(); break;
       default: state.activeView = 'night'; renderNight();
     }
-    updateUndoBar();
+    if (state.activeView !== 'night') hideUndoBar();
     bindViewLinks();
   }
 
@@ -967,6 +937,12 @@
   }
 
   async function switchView(view) {
+    if (state.activeView === 'night' && view !== 'night') {
+      nightUndoOperationId = null;
+      undoDismissed = false;
+      state.ui.nightCorrection = false;
+      hideUndoBar();
+    }
     state.activeView = view;
     await saveState();
     closeDrawer();
@@ -1043,17 +1019,22 @@
     el('wakeLockBtn').addEventListener('click', toggleWakeLock);
     el('undoBtn').addEventListener('click', async () => {
       const shift = currentShift();
-      if (!shift) return;
-      const removed = L.undoLastOperation(shift);
-      if (!removed.length) return showToast('沒有可復原的紀錄');
+      if (!shift || !nightUndoOperationId) return showToast('沒有可復原的夜班紀錄');
+      const removed = L.undoOperation(shift, nightUndoOperationId);
+      if (!removed.length) return showToast('這筆紀錄已不存在');
+      nightUndoOperationId = null;
+      undoDismissed = false;
       await saveState();
       vibrate(70);
       const first = removed[0];
-      showToast(`已復原：${first.station} ${categoryLabel(first.category)}`);
+      showToast(`已復原：${first.station} 夜班`);
       renderCurrentView();
     });
+    el('undoCloseBtn').addEventListener('click', () => {
+      undoDismissed = true;
+      hideUndoBar();
+    });
     el('eventEditForm').addEventListener('submit', saveEventEdit);
-    el('returnBatchEditForm').addEventListener('submit', saveReturnBatchEdit);
     el('quantityForm').addEventListener('submit', saveCustomQuantity);
     document.querySelectorAll('[data-qty]').forEach((button) => {
       button.addEventListener('click', async () => {

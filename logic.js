@@ -6,12 +6,12 @@
   'use strict';
 
   const CHUTES = [
-    { id: 1, name: '第一滑道', stations: ['NS2', 'NS3', 'NS5', 'NS6', 'NS8', 'NS9'] },
-    { id: 2, name: '第二滑道', stations: ['CS2', 'CS12', 'NS10', 'NS11', 'NS12', 'NS13'] },
-    { id: 3, name: '第三滑道', stations: ['CS4', 'CS5', 'NS15', 'NS16', 'NS17', 'NS18', 'NS19'] },
-    { id: 4, name: '第四滑道', stations: ['CS3', 'CS6', 'NS20', 'NS21', 'NS22', 'NS23'] },
-    { id: 5, name: '第五滑道', stations: ['TS1', 'TS2', 'TS3', 'TS5', 'TS6', 'TS11'] },
-    { id: 6, name: '第六滑道', stations: ['SS3', 'SS4', 'SS5', 'SS6', 'SS7', 'KS1', 'KS2', 'KS3'] },
+    { id: 7, name: '第七滑道', stations: ['NS2', 'NS3', 'NS5', 'NS6', 'NS8', 'NS9'] },
+    { id: 8, name: '第八滑道', stations: ['CS2', 'CS12', 'NS10', 'NS11', 'NS12', 'NS13'] },
+    { id: 9, name: '第九滑道', stations: ['CS4', 'CS5', 'NS15', 'NS16', 'NS17', 'NS18', 'NS19'] },
+    { id: 10, name: '第十滑道', stations: ['CS3', 'CS6', 'NS20', 'NS21', 'NS22', 'NS23'] },
+    { id: 11, name: '第十一滑道', stations: ['TS1', 'TS2', 'TS3', 'TS5', 'TS6', 'TS11'] },
+    { id: 12, name: '第十二滑道', stations: ['SS3', 'SS4', 'SS5', 'SS6', 'SS7', 'KS1', 'KS2', 'KS3'] },
   ];
 
   const STATIONS = CHUTES.flatMap((chute) => chute.stations);
@@ -23,6 +23,7 @@
     THREE_AM: [...STATION_GROUPS.CS, ...STATION_GROUPS.SS, ...STATION_GROUPS.KS],
     FIVE_AM: [...STATION_GROUPS.NS, ...STATION_GROUPS.TS],
   };
+  const RETURN_SOURCES = ['DC9', 'DC4', 'DC11', 'CS12', 'SDC', 'DC2', 'NS2', 'NS1', 'DC12'];
 
   const CATEGORIES = ['morning', 'night', 'transit', 'loaded', 'online', 'actual'];
   const CATEGORY_LABELS = {
@@ -58,6 +59,7 @@
       status: 'active',
       events: [],
       returnBatches: [],
+      returnCounts: Object.fromEntries(RETURN_SOURCES.map((source) => [source, 0])),
     };
     if (previousMorning) {
       const operationId = uid('copy');
@@ -84,6 +86,19 @@
     if (!shift || typeof shift !== 'object') throw new Error('班次資料無效');
     if (!Array.isArray(shift.events)) shift.events = [];
     if (!Array.isArray(shift.returnBatches)) shift.returnBatches = [];
+    if (!shift.returnCounts || typeof shift.returnCounts !== 'object' || Array.isArray(shift.returnCounts)) {
+      shift.returnCounts = {};
+      shift.returnBatches.forEach((batch) => {
+        const source = String(batch.source || '').trim().toUpperCase();
+        if (!source) return;
+        const total = Math.max(0, Number(batch.mixed || 0)) + Math.max(0, Number(batch.transit || 0));
+        shift.returnCounts[source] = (shift.returnCounts[source] || 0) + total;
+      });
+    }
+    RETURN_SOURCES.forEach((source) => {
+      const value = Number(shift.returnCounts[source] || 0);
+      shift.returnCounts[source] = Number.isFinite(value) && value > 0 ? value : 0;
+    });
     recomputeEventAfters(shift);
     return shift;
   }
@@ -298,6 +313,15 @@
     return removed;
   }
 
+  function undoOperation(shift, operationId) {
+    if (!operationId) return [];
+    const removed = shift.events.filter((event) => (event.operationId || event.id) === operationId);
+    if (!removed.length) return [];
+    shift.events = shift.events.filter((event) => (event.operationId || event.id) !== operationId);
+    recomputeEventAfters(shift);
+    return removed;
+  }
+
   function editEvent(shift, eventId, patch) {
     const event = shift.events.find((item) => item.id === eventId);
     if (!event) throw new Error('找不到事件');
@@ -320,6 +344,38 @@
     shift.events = shift.events.filter((item) => item.id !== eventId);
     recomputeEventAfters(shift);
     return before !== shift.events.length;
+  }
+
+  function adjustReturnCount(shift, source, delta) {
+    migrateShift(shift);
+    const cleanSource = String(source || '').trim().toUpperCase();
+    const amount = Number(delta);
+    if (!cleanSource) throw new Error('回倉來源無效');
+    if (!Number.isFinite(amount) || amount === 0) throw new Error('調整數量必須是非零數字');
+    const current = Number(shift.returnCounts[cleanSource] || 0);
+    if (current + amount < 0) throw new Error(`${cleanSource} 回倉數量已是 0`);
+    shift.returnCounts[cleanSource] = current + amount;
+    return shift.returnCounts[cleanSource];
+  }
+
+  function setReturnCount(shift, source, value) {
+    migrateShift(shift);
+    const cleanSource = String(source || '').trim().toUpperCase();
+    const number = Math.max(0, Number(value || 0));
+    if (!cleanSource || !Number.isFinite(number)) throw new Error('回倉數量無效');
+    shift.returnCounts[cleanSource] = number;
+    return number;
+  }
+
+  function computeReturnCounts(shift) {
+    migrateShift(shift);
+    const bySource = {};
+    Object.entries(shift.returnCounts).forEach(([source, value]) => {
+      const number = Math.max(0, Number(value || 0));
+      if (number > 0 || RETURN_SOURCES.includes(source)) bySource[source] = number;
+    });
+    const total = Object.values(bySource).reduce((sum, value) => sum + Number(value || 0), 0);
+    return { bySource, total };
   }
 
   function addReturnBatch(shift, { source, mixed = 0, transit = 0, note = '', timestamp = nowIso() }) {
@@ -411,24 +467,11 @@
   }
 
   function makeReturnBatchCSV(shift) {
-    migrateShift(shift);
-    const rows = [['日期', '時間', '來源', '待分板數', '過境板數', '合計', '備註']];
-    shift.returnBatches
-      .slice()
-      .sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp)))
-      .forEach((batch) => {
-        const date = new Date(batch.timestamp);
-        rows.push([
-          date.toLocaleDateString('zh-TW'),
-          date.toLocaleTimeString('zh-TW', { hour12: false }),
-          batch.source,
-          batch.mixed,
-          batch.transit,
-          Number(batch.mixed || 0) + Number(batch.transit || 0),
-          batch.note || '',
-        ]);
-      });
-    return '\ufeff' + rows.map((row) => row.map(csvEscape).join(',')).join('\n');
+    const totals = computeReturnCounts(shift);
+    const rows = [['來源', '回倉板數']];
+    Object.entries(totals.bySource).forEach(([source, count]) => rows.push([source, count]));
+    rows.push(['合計', totals.total]);
+    return '﻿' + rows.map((row) => row.map(csvEscape).join(',')).join('\n');
   }
 
   function makeReportText(shift, reportKey = 'THREE_AM') {
@@ -450,30 +493,19 @@
     migrateShift(shift);
     const stats = computeAllStats(shift);
     const totals = computeTotals(shift);
-    const returnTotals = computeReturnBatchTotals(shift);
+    const returns = computeReturnCounts(shift);
     const lines = [
       `日期：${shift.date}`,
       '',
       `03:00 CS／SS／KS 回報總數：${totals.REPORT03.reportTotal}`,
-      `05:00 NS／TS 回報總數：${totals.REPORT05.reportTotal}`,
       `全部回報總數：${totals.ALL.reportTotal}`,
       '',
       '回倉紀錄：',
     ];
-    if (!shift.returnBatches.length) {
-      lines.push('無');
-    } else {
-      shift.returnBatches
-        .slice()
-        .sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp)))
-        .forEach((batch) => {
-          const time = new Date(batch.timestamp).toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit' });
-          lines.push(`${time}｜${batch.source}｜待分${batch.mixed}｜過境${batch.transit}${batch.note ? `｜${batch.note}` : ''}`);
-        });
-    }
-    lines.push(`回倉待分合計：${returnTotals.mixed}`);
-    lines.push(`回倉過境合計：${returnTotals.transit}`);
-    lines.push(`站所過境合計：${returnTotals.stationTransit}`);
+    const nonZeroReturns = Object.entries(returns.bySource).filter(([, count]) => Number(count) > 0);
+    if (!nonZeroReturns.length) lines.push('無');
+    else nonZeroReturns.forEach(([source, count]) => lines.push(`${source}：${count}板`));
+    lines.push(`回倉合計：${returns.total}`);
     lines.push('', '站所統計：');
     STATIONS.forEach((station) => {
       const s = stats[station];
@@ -490,6 +522,7 @@
     GROUP_ORDER,
     STATION_GROUPS,
     REPORT_GROUPS,
+    RETURN_SOURCES,
     CATEGORIES,
     CATEGORY_LABELS,
     uid,
@@ -510,8 +543,12 @@
     addOnlineToAllStations,
     convertAllOnlineToNight,
     undoLastOperation,
+    undoOperation,
     editEvent,
     deleteEvent,
+    adjustReturnCount,
+    setReturnCount,
+    computeReturnCounts,
     addReturnBatch,
     editReturnBatch,
     deleteReturnBatch,

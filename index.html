@@ -10,7 +10,7 @@
   <link rel="icon" href="icons/icon-192.png" sizes="192x192">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="stylesheet" href="styles.css">
-  <title>夜班點貨 v3</title>
+  <title>夜班點貨 v4</title>
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -29,12 +29,14 @@
 
     <div id="undoBar" class="undo-bar hidden" role="status">
       <span id="undoMessage">已新增</span>
-      <button id="undoBtn">復原上一筆</button>
+      <div class="undo-actions">
+        <button id="undoBtn">復原上一筆</button>
+        <button id="undoCloseBtn" class="undo-close" aria-label="關閉復原提示">✕</button>
+      </div>
     </div>
 
     <nav class="bottom-nav" aria-label="主要功能">
       <button data-view="night" class="nav-btn active"><span>＋1</span>夜班</button>
-      <button data-view="transit" class="nav-btn"><span>↪</span>過境</button>
       <button data-view="loaded" class="nav-btn"><span>⇢</span>載走</button>
       <button data-view="inventory" class="nav-btn"><span>⌗</span>盤點</button>
       <button data-view="stats" class="nav-btn"><span>Σ</span>統計</button>
@@ -48,12 +50,13 @@
     </div>
     <button data-view="morning" class="drawer-item">早班數量</button>
     <button data-view="online" class="drawer-item">線上未退出</button>
-    <button data-view="reports" class="drawer-item">03:00／05:00 快速回報</button>
-    <button data-view="returns" class="drawer-item">回倉／過境批次</button>
+    <button data-view="transit" class="drawer-item">過境貨</button>
+    <button data-view="reports" class="drawer-item">03:00 快速回報</button>
+    <button data-view="returns" class="drawer-item">回倉紀錄</button>
     <button data-view="events" class="drawer-item">事件紀錄</button>
     <button data-view="shifts" class="drawer-item">班次／備份</button>
     <button id="wakeLockBtn" class="drawer-item">保持螢幕喚醒：關</button>
-    <div class="drawer-version">版本 v3.0</div>
+    <div class="drawer-version">版本 v4.0</div>
   </aside>
   <div id="drawerBackdrop" class="backdrop hidden"></div>
 
@@ -93,20 +96,7 @@
     </form>
   </dialog>
 
-  <dialog id="returnBatchDialog" class="modal">
-    <form method="dialog" id="returnBatchEditForm">
-      <h2>修改回倉紀錄</h2>
-      <input type="hidden" id="editBatchId">
-      <label>來源<input id="editBatchSource" type="text" maxlength="20" required></label>
-      <label>待分板數<input id="editBatchMixed" type="number" min="0" step="1" inputmode="numeric" required></label>
-      <label>過境板數<input id="editBatchTransit" type="number" min="0" step="1" inputmode="numeric" required></label>
-      <label>備註<input id="editBatchNote" type="text" maxlength="60"></label>
-      <div class="dialog-actions">
-        <button value="cancel" class="secondary-btn">取消</button>
-        <button value="default" class="primary-btn">儲存</button>
-      </div>
-    </form>
-  </dialog>
+
 
   <div id="toast" class="toast hidden" role="status"></div>
 

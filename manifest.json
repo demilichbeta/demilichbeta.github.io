@@ -1,7 +1,7 @@
 {
-  "name": "物流夜班點貨 v3",
+  "name": "物流夜班點貨 v4",
   "short_name": "夜班點貨",
-  "description": "Android 自用棧板點貨、回倉批次、快速回報、盤點與統計工具",
+  "description": "Android 自用棧板點貨、回倉板數、03:00 快速回報、盤點與統計工具",
   "lang": "zh-Hant-TW",
   "start_url": "./index.html",
   "scope": "./",
