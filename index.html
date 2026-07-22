@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#111827">
   <meta name="color-scheme" content="dark">
-  <meta name="description" content="NS／TS 夜班棧板點貨與統計工具">
+  <meta name="description" content="物流夜班棧板點貨、回倉紀錄與快速回報工具">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" sizes="192x192">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="stylesheet" href="styles.css">
-  <title>夜班點貨</title>
+  <title>夜班點貨 v3</title>
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -48,9 +48,12 @@
     </div>
     <button data-view="morning" class="drawer-item">早班數量</button>
     <button data-view="online" class="drawer-item">線上未退出</button>
+    <button data-view="reports" class="drawer-item">03:00／05:00 快速回報</button>
+    <button data-view="returns" class="drawer-item">回倉／過境批次</button>
     <button data-view="events" class="drawer-item">事件紀錄</button>
     <button data-view="shifts" class="drawer-item">班次／備份</button>
     <button id="wakeLockBtn" class="drawer-item">保持螢幕喚醒：關</button>
+    <div class="drawer-version">版本 v3.0</div>
   </aside>
   <div id="drawerBackdrop" class="backdrop hidden"></div>
 
@@ -86,6 +89,21 @@
       <div class="dialog-actions">
         <button value="cancel" class="secondary-btn">取消</button>
         <button id="saveQuantityBtn" value="default" class="primary-btn">加入</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="returnBatchDialog" class="modal">
+    <form method="dialog" id="returnBatchEditForm">
+      <h2>修改回倉紀錄</h2>
+      <input type="hidden" id="editBatchId">
+      <label>來源<input id="editBatchSource" type="text" maxlength="20" required></label>
+      <label>待分板數<input id="editBatchMixed" type="number" min="0" step="1" inputmode="numeric" required></label>
+      <label>過境板數<input id="editBatchTransit" type="number" min="0" step="1" inputmode="numeric" required></label>
+      <label>備註<input id="editBatchNote" type="text" maxlength="60"></label>
+      <div class="dialog-actions">
+        <button value="cancel" class="secondary-btn">取消</button>
+        <button value="default" class="primary-btn">儲存</button>
       </div>
     </form>
   </dialog>

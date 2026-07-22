@@ -1,7 +1,7 @@
 {
-  "name": "夜班點貨｜NS／TS",
+  "name": "物流夜班點貨 v3",
   "short_name": "夜班點貨",
-  "description": "Android 自用 NS／TS 棧板點貨、過境、載走、盤點與統計工具",
+  "description": "Android 自用棧板點貨、回倉批次、快速回報、盤點與統計工具",
   "lang": "zh-Hant-TW",
   "start_url": "./index.html",
   "scope": "./",

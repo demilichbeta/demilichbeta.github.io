@@ -7,13 +7,23 @@
 
   const CHUTES = [
     { id: 1, name: '第一滑道', stations: ['NS2', 'NS3', 'NS5', 'NS6', 'NS8', 'NS9'] },
-    { id: 2, name: '第二滑道', stations: ['NS10', 'NS11', 'NS12', 'NS13'] },
-    { id: 3, name: '第三滑道', stations: ['NS15', 'NS16', 'NS17', 'NS18', 'NS19'] },
-    { id: 4, name: '第四滑道', stations: ['NS20', 'NS21', 'NS22', 'NS23'] },
+    { id: 2, name: '第二滑道', stations: ['CS2', 'CS12', 'NS10', 'NS11', 'NS12', 'NS13'] },
+    { id: 3, name: '第三滑道', stations: ['CS4', 'CS5', 'NS15', 'NS16', 'NS17', 'NS18', 'NS19'] },
+    { id: 4, name: '第四滑道', stations: ['CS3', 'CS6', 'NS20', 'NS21', 'NS22', 'NS23'] },
     { id: 5, name: '第五滑道', stations: ['TS1', 'TS2', 'TS3', 'TS5', 'TS6', 'TS11'] },
+    { id: 6, name: '第六滑道', stations: ['SS3', 'SS4', 'SS5', 'SS6', 'SS7', 'KS1', 'KS2', 'KS3'] },
   ];
 
-  const STATIONS = CHUTES.flatMap((c) => c.stations);
+  const STATIONS = CHUTES.flatMap((chute) => chute.stations);
+  const GROUP_ORDER = ['CS', 'SS', 'KS', 'NS', 'TS'];
+  const STATION_GROUPS = Object.fromEntries(
+    GROUP_ORDER.map((group) => [group, STATIONS.filter((station) => station.startsWith(group))])
+  );
+  const REPORT_GROUPS = {
+    THREE_AM: [...STATION_GROUPS.CS, ...STATION_GROUPS.SS, ...STATION_GROUPS.KS],
+    FIVE_AM: [...STATION_GROUPS.NS, ...STATION_GROUPS.TS],
+  };
+
   const CATEGORIES = ['morning', 'night', 'transit', 'loaded', 'online', 'actual'];
   const CATEGORY_LABELS = {
     morning: '早班',
@@ -47,15 +57,16 @@
       createdAt: nowIso(),
       status: 'active',
       events: [],
+      returnBatches: [],
     };
     if (previousMorning) {
-      const opId = uid('copy');
+      const operationId = uid('copy');
       STATIONS.forEach((station) => {
         const value = Number(previousMorning[station] || 0);
         if (value > 0) {
           shift.events.push({
             id: uid('evt'),
-            operationId: opId,
+            operationId,
             timestamp: nowIso(),
             station,
             category: 'morning',
@@ -66,6 +77,14 @@
         }
       });
     }
+    return shift;
+  }
+
+  function migrateShift(shift) {
+    if (!shift || typeof shift !== 'object') throw new Error('班次資料無效');
+    if (!Array.isArray(shift.events)) shift.events = [];
+    if (!Array.isArray(shift.returnBatches)) shift.returnBatches = [];
+    recomputeEventAfters(shift);
     return shift;
   }
 
@@ -130,17 +149,32 @@
     return stats;
   }
 
+  function blankTotal() {
+    return {
+      morning: 0,
+      night: 0,
+      transit: 0,
+      online: 0,
+      loaded: 0,
+      reportTotal: 0,
+      expected: 0,
+      actual: 0,
+      difference: 0,
+    };
+  }
+
   function computeTotals(shift) {
     const stats = computeAllStats(shift);
-    const groups = {
-      NS: { reportTotal: 0, expected: 0, actual: 0, difference: 0 },
-      TS: { reportTotal: 0, expected: 0, actual: 0, difference: 0 },
-      ALL: { reportTotal: 0, expected: 0, actual: 0, difference: 0 },
-    };
+    const groups = { ALL: blankTotal(), REPORT03: blankTotal(), REPORT05: blankTotal() };
+    GROUP_ORDER.forEach((group) => { groups[group] = blankTotal(); });
+
     STATIONS.forEach((station) => {
-      const group = station.startsWith('TS') ? 'TS' : 'NS';
-      ['reportTotal', 'expected', 'actual', 'difference'].forEach((field) => {
+      const group = GROUP_ORDER.find((prefix) => station.startsWith(prefix));
+      const reportKey = REPORT_GROUPS.THREE_AM.includes(station) ? 'REPORT03' : 'REPORT05';
+      const fields = Object.keys(blankTotal());
+      fields.forEach((field) => {
         groups[group][field] += stats[station][field];
+        groups[reportKey][field] += stats[station][field];
         groups.ALL[field] += stats[station][field];
       });
     });
@@ -188,12 +222,13 @@
     return qty;
   }
 
-  function addOnlineToAllStations(shift, amount = 1) {
+  function addOnlineToStations(shift, stations = REPORT_GROUPS.FIVE_AM, amount = 1) {
+    const targetStations = stations.filter((station) => STATIONS.includes(station));
     const qty = Math.max(1, Number(amount || 1));
     const counts = computeCounts(shift);
-    const operationId = uid('online-all');
+    const operationId = uid('online-bulk');
     const timestamp = nowIso();
-    STATIONS.forEach((station) => {
+    targetStations.forEach((station) => {
       shift.events.push({
         id: uid('evt'),
         operationId,
@@ -202,11 +237,15 @@
         category: 'online',
         delta: qty,
         after: counts[station].online + qty,
-        note: '全部站所線上加一',
+        note: 'NS／TS 全部站所線上加一',
       });
     });
     recomputeEventAfters(shift);
-    return { stations: STATIONS.length, quantity: STATIONS.length * qty };
+    return { stations: targetStations.length, quantity: targetStations.length * qty };
+  }
+
+  function addOnlineToAllStations(shift, amount = 1) {
+    return addOnlineToStations(shift, REPORT_GROUPS.FIVE_AM, amount);
   }
 
   function convertAllOnlineToNight(shift) {
@@ -283,6 +322,69 @@
     return before !== shift.events.length;
   }
 
+  function addReturnBatch(shift, { source, mixed = 0, transit = 0, note = '', timestamp = nowIso() }) {
+    migrateShift(shift);
+    const cleanSource = String(source || '').trim().toUpperCase();
+    const mixedQty = Math.max(0, Number(mixed || 0));
+    const transitQty = Math.max(0, Number(transit || 0));
+    if (!cleanSource) throw new Error('請輸入回倉來源');
+    if (!Number.isFinite(mixedQty) || !Number.isFinite(transitQty) || mixedQty + transitQty <= 0) {
+      throw new Error('待分或過境至少要有 1 板');
+    }
+    const batch = {
+      id: uid('batch'),
+      timestamp,
+      source: cleanSource,
+      mixed: mixedQty,
+      transit: transitQty,
+      note: String(note || '').trim(),
+    };
+    shift.returnBatches.push(batch);
+    return batch;
+  }
+
+  function editReturnBatch(shift, batchId, patch) {
+    migrateShift(shift);
+    const batch = shift.returnBatches.find((item) => item.id === batchId);
+    if (!batch) throw new Error('找不到回倉紀錄');
+    const source = patch.source === undefined ? batch.source : String(patch.source || '').trim().toUpperCase();
+    const mixed = patch.mixed === undefined ? batch.mixed : Math.max(0, Number(patch.mixed || 0));
+    const transit = patch.transit === undefined ? batch.transit : Math.max(0, Number(patch.transit || 0));
+    if (!source) throw new Error('請輸入回倉來源');
+    if (!Number.isFinite(mixed) || !Number.isFinite(transit) || mixed + transit <= 0) throw new Error('數量無效');
+    batch.source = source;
+    batch.mixed = mixed;
+    batch.transit = transit;
+    if (patch.note !== undefined) batch.note = String(patch.note || '').trim();
+    if (patch.timestamp) batch.timestamp = patch.timestamp;
+    return batch;
+  }
+
+  function deleteReturnBatch(shift, batchId) {
+    migrateShift(shift);
+    const before = shift.returnBatches.length;
+    shift.returnBatches = shift.returnBatches.filter((item) => item.id !== batchId);
+    return before !== shift.returnBatches.length;
+  }
+
+  function computeReturnBatchTotals(shift) {
+    migrateShift(shift);
+    const batchTotals = shift.returnBatches.reduce((total, batch) => {
+      total.mixed += Number(batch.mixed || 0);
+      total.transit += Number(batch.transit || 0);
+      return total;
+    }, { mixed: 0, transit: 0 });
+    const counts = computeCounts(shift);
+    const stationTransit = STATIONS.reduce((sum, station) => sum + counts[station].transit, 0);
+    return {
+      mixed: batchTotals.mixed,
+      transit: batchTotals.transit,
+      all: batchTotals.mixed + batchTotals.transit,
+      stationTransit,
+      transitDifference: stationTransit - batchTotals.transit,
+    };
+  }
+
   function csvEscape(value) {
     const text = String(value ?? '');
     return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
@@ -308,18 +410,71 @@
     return '\ufeff' + rows.map((row) => row.map(csvEscape).join(',')).join('\n');
   }
 
+  function makeReturnBatchCSV(shift) {
+    migrateShift(shift);
+    const rows = [['日期', '時間', '來源', '待分板數', '過境板數', '合計', '備註']];
+    shift.returnBatches
+      .slice()
+      .sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp)))
+      .forEach((batch) => {
+        const date = new Date(batch.timestamp);
+        rows.push([
+          date.toLocaleDateString('zh-TW'),
+          date.toLocaleTimeString('zh-TW', { hour12: false }),
+          batch.source,
+          batch.mixed,
+          batch.transit,
+          Number(batch.mixed || 0) + Number(batch.transit || 0),
+          batch.note || '',
+        ]);
+      });
+    return '\ufeff' + rows.map((row) => row.map(csvEscape).join(',')).join('\n');
+  }
+
+  function makeReportText(shift, reportKey = 'THREE_AM') {
+    const stations = REPORT_GROUPS[reportKey];
+    if (!stations) throw new Error('未知回報類型');
+    const stats = computeAllStats(shift);
+    const title = reportKey === 'THREE_AM' ? '03:00 CS／SS／KS 回報' : '05:00 NS／TS 回報';
+    const lines = [`${title}｜${shift.date}`];
+    stations.forEach((station) => {
+      const s = stats[station];
+      lines.push(`${station}：早${s.morning}／夜${s.night}／過${s.transit}｜總${s.reportTotal}`);
+    });
+    const total = stations.reduce((sum, station) => sum + stats[station].reportTotal, 0);
+    lines.push(`合計：${total}`);
+    return lines.join('\n');
+  }
+
   function makeWorkLogText(shift) {
+    migrateShift(shift);
     const stats = computeAllStats(shift);
     const totals = computeTotals(shift);
+    const returnTotals = computeReturnBatchTotals(shift);
     const lines = [
       `日期：${shift.date}`,
       '',
-      `NS 回報總數：${totals.NS.reportTotal}`,
-      `TS 回報總數：${totals.TS.reportTotal}`,
+      `03:00 CS／SS／KS 回報總數：${totals.REPORT03.reportTotal}`,
+      `05:00 NS／TS 回報總數：${totals.REPORT05.reportTotal}`,
       `全部回報總數：${totals.ALL.reportTotal}`,
       '',
-      '站所統計：',
+      '回倉紀錄：',
     ];
+    if (!shift.returnBatches.length) {
+      lines.push('無');
+    } else {
+      shift.returnBatches
+        .slice()
+        .sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp)))
+        .forEach((batch) => {
+          const time = new Date(batch.timestamp).toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit' });
+          lines.push(`${time}｜${batch.source}｜待分${batch.mixed}｜過境${batch.transit}${batch.note ? `｜${batch.note}` : ''}`);
+        });
+    }
+    lines.push(`回倉待分合計：${returnTotals.mixed}`);
+    lines.push(`回倉過境合計：${returnTotals.transit}`);
+    lines.push(`站所過境合計：${returnTotals.stationTransit}`);
+    lines.push('', '站所統計：');
     STATIONS.forEach((station) => {
       const s = stats[station];
       lines.push(
@@ -332,12 +487,16 @@
   return {
     CHUTES,
     STATIONS,
+    GROUP_ORDER,
+    STATION_GROUPS,
+    REPORT_GROUPS,
     CATEGORIES,
     CATEGORY_LABELS,
     uid,
     nowIso,
     localDate,
     createShift,
+    migrateShift,
     emptyCounts,
     computeCounts,
     recomputeEventAfters,
@@ -347,13 +506,20 @@
     addEvent,
     setCount,
     convertOnlineToNight,
+    addOnlineToStations,
     addOnlineToAllStations,
     convertAllOnlineToNight,
     undoLastOperation,
     editEvent,
     deleteEvent,
+    addReturnBatch,
+    editReturnBatch,
+    deleteReturnBatch,
+    computeReturnBatchTotals,
     csvEscape,
     makeShiftCSV,
+    makeReturnBatchCSV,
+    makeReportText,
     makeWorkLogText,
   };
 });

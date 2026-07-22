@@ -459,3 +459,193 @@ button { touch-action: manipulation; }
   .online-convert,
   .online-count { min-height: 48px; }
 }
+
+/* v3：CS／SS／KS、快速回報與回倉批次 */
+.drawer-version {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: .75rem;
+  text-align: center;
+}
+.full-width { width: 100%; }
+.series-total-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0 0 10px;
+}
+.series-total-strip span {
+  display: block;
+  padding: 7px 3px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: .7rem;
+  text-align: center;
+}
+.series-total-strip b {
+  display: block;
+  margin-top: 2px;
+  color: #7dd3fc;
+  font-size: 1rem;
+}
+.report-mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+.report-mode-switch button {
+  min-height: 52px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel-2);
+  color: var(--muted);
+  font-weight: 900;
+}
+.report-mode-switch button.active {
+  border-color: var(--accent);
+  background: rgba(14, 165, 233, .2);
+  color: #e0f2fe;
+}
+.report-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.report-copy-btn {
+  min-height: 54px;
+  margin-bottom: 10px;
+}
+.report-list {
+  display: grid;
+  gap: 7px;
+}
+.report-row {
+  display: grid;
+  grid-template-columns: 65px repeat(4, minmax(0, 1fr));
+  gap: 5px;
+  align-items: center;
+  min-height: 58px;
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+.report-row > strong {
+  font-size: 1rem;
+  text-align: center;
+}
+.report-row > span {
+  display: grid;
+  place-items: center;
+  min-height: 42px;
+  border-radius: 9px;
+  background: #09111f;
+  color: var(--text);
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+.report-row small {
+  display: block;
+  color: var(--muted);
+  font-size: .62rem;
+  font-weight: 600;
+}
+.report-row .report-total {
+  color: #7dd3fc;
+  border: 1px solid #255373;
+}
+.source-quick-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 12px 0;
+}
+.source-quick-buttons button {
+  min-height: 48px;
+  border: 1px solid #35516a;
+  border-radius: 11px;
+  background: #18324a;
+  color: #bae6fd;
+  font-weight: 900;
+}
+.return-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+.return-form-grid label {
+  color: var(--muted);
+  font-size: .78rem;
+}
+.return-form-grid input {
+  width: 100%;
+  min-height: 52px;
+  margin-top: 5px;
+  padding: 8px 10px;
+  border: 1px solid #3a4a64;
+  border-radius: 11px;
+  background: #09111f;
+  color: var(--text);
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+.return-form-grid .return-note { grid-column: 1 / -1; }
+#addReturnBatchBtn { min-height: 56px; margin-top: 12px; }
+.return-totals-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.return-totals-grid div {
+  padding: 8px 4px;
+  border-radius: 10px;
+  background: #09111f;
+  text-align: center;
+}
+.return-totals-grid span {
+  display: block;
+  color: var(--muted);
+  font-size: .66rem;
+}
+.return-totals-grid b {
+  display: block;
+  margin-top: 3px;
+  color: #7dd3fc;
+  font-size: 1.2rem;
+}
+.card.difference-bad {
+  border-color: rgba(239, 68, 68, .75);
+  background: rgba(127, 29, 29, .24);
+}
+.card.difference-good { border-color: rgba(34, 197, 94, .34); }
+.batch-counts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 8px;
+}
+.batch-counts span {
+  padding: 7px 4px;
+  border-radius: 9px;
+  background: #09111f;
+  color: var(--muted);
+  font-size: .72rem;
+  text-align: center;
+}
+.batch-counts b {
+  display: block;
+  margin-top: 2px;
+  color: var(--text);
+  font-size: 1rem;
+}
+
+@media (max-width: 390px) {
+  .series-total-strip { grid-template-columns: repeat(5, minmax(52px, 1fr)); overflow-x: auto; }
+  .report-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .report-row { grid-template-columns: 56px repeat(4, minmax(0, 1fr)); gap: 4px; }
+  .return-totals-grid { grid-template-columns: repeat(2, 1fr); }
+}
