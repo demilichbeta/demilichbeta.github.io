@@ -9,23 +9,47 @@
     { id: 7, name: '第七滑道', stations: ['NS2', 'NS3', 'NS5', 'NS6', 'NS8', 'NS9'] },
     { id: 8, name: '第八滑道', stations: ['CS2', 'CS12', 'NS10', 'NS11', 'NS12', 'NS13'] },
     { id: 9, name: '第九滑道', stations: ['CS4', 'CS5', 'NS15', 'NS16', 'NS17', 'NS18', 'NS19'] },
-    { id: 10, name: '第十滑道', stations: ['CS3', 'CS6', 'YT1', 'HT1', 'NS20', 'NS21', 'NS22', 'NS23'] },
-    { id: 11, name: '第十一滑道', stations: ['ET3', 'TS1', 'TS2', 'TS3', 'TS5', 'TS6', 'TS11'] },
+    { id: 10, name: '第十滑道', stations: ['CS3', 'CS6', 'NS20', 'NS21', 'NS22', 'NS23', 'YT1', 'HT1'] },
+    { id: 11, name: '第十一滑道', stations: ['TS1', 'TS2', 'TS3', 'TS5', 'TS6', 'TS11', 'ET3'] },
     { id: 12, name: '第十二滑道', stations: ['SS3', 'SS4', 'SS5', 'SS6', 'SS7', 'KS1', 'KS2', 'KS3'] },
   ];
 
   const STATIONS = CHUTES.flatMap((chute) => chute.stations);
-  const GROUP_ORDER = ['CS', 'ET', 'HT', 'KS', 'NS', 'SS', 'TS', 'YT'];
   const naturalStationSort = (a, b) => a.localeCompare(b, 'en', { numeric: true, sensitivity: 'base' });
-  const STATION_GROUPS = Object.fromEntries(
-    GROUP_ORDER.map((group) => [group, STATIONS.filter((station) => station.startsWith(group)).sort(naturalStationSort)])
+
+  // 個別系列：用於統計頁上方的小框與精確系列小計。
+  const SERIES_ORDER = ['NS', 'TS', 'CS', 'SS', 'KS', 'HT', 'YT', 'ET'];
+  const SERIES_GROUPS = Object.fromEntries(
+    SERIES_ORDER.map((series) => [series, STATIONS.filter((station) => station.startsWith(series)).sort(naturalStationSort)])
   );
-  const REPORT_GROUPS = {
-    THREE_AM: [...STATION_GROUPS.CS, ...STATION_GROUPS.SS, ...STATION_GROUPS.KS],
-    FIVE_AM: [...STATION_GROUPS.ET, ...STATION_GROUPS.HT, ...STATION_GROUPS.NS, ...STATION_GROUPS.TS, ...STATION_GROUPS.YT],
+
+  // 快速分類：NS、TS、CS、S（SS+KS）、E（ET+HT+YT）。
+  const GROUP_ORDER = ['NS', 'TS', 'CS', 'S', 'E'];
+  const STATION_GROUPS = {
+    NS: [...SERIES_GROUPS.NS],
+    TS: [...SERIES_GROUPS.TS],
+    CS: [...SERIES_GROUPS.CS],
+    S: [...SERIES_GROUPS.SS, ...SERIES_GROUPS.KS],
+    E: [...SERIES_GROUPS.ET, ...SERIES_GROUPS.HT, ...SERIES_GROUPS.YT].sort(naturalStationSort),
   };
-  // 04:30 的『全部＋1』只套用 NS／TS；03:00 系列與少量例外站不納入。
-  const ONLINE_BULK_STATIONS = [...STATION_GROUPS.NS, ...STATION_GROUPS.TS];
+
+  function stationSeries(station) {
+    return SERIES_ORDER.find((series) => station.startsWith(series)) || '';
+  }
+
+  function stationGroup(station) {
+    const series = stationSeries(station);
+    if (series === 'SS' || series === 'KS') return 'S';
+    if (series === 'ET' || series === 'HT' || series === 'YT') return 'E';
+    return series;
+  }
+
+  const REPORT_GROUPS = {
+    THREE_AM: [...SERIES_GROUPS.CS, ...SERIES_GROUPS.SS, ...SERIES_GROUPS.KS],
+    FIVE_AM: [...SERIES_GROUPS.NS, ...SERIES_GROUPS.TS, ...SERIES_GROUPS.ET, ...SERIES_GROUPS.HT, ...SERIES_GROUPS.YT],
+  };
+  // 04:30 的『全部＋1』只套用 NS／TS。
+  const ONLINE_BULK_STATIONS = [...SERIES_GROUPS.NS, ...SERIES_GROUPS.TS];
   const RETURN_SOURCES = ['DC9', 'DC4', 'DC11', 'CS12', 'SDC', 'DC2', 'NS2', 'NS5', 'NS1', 'DC12'];
 
   const CARRIERS = ['cage', 'pallet'];
@@ -96,7 +120,7 @@
       returnNotes: [],
       returnBatches: [],
       returnCounts: {},
-      schemaVersion: 6,
+      schemaVersion: 7,
     };
     if (previousMorning) {
       const operationId = uid('copy');
@@ -181,7 +205,7 @@
         text: String(item.text || '').trim(),
       }));
 
-    shift.schemaVersion = 6;
+    shift.schemaVersion = 7;
     recomputeEventAfters(shift);
     return shift;
   }
@@ -260,14 +284,16 @@
   function computeTotals(shift, carrier = 'ALL') {
     const stats = computeAllStats(shift, carrier);
     const groups = { ALL: blankTotal(), REPORT03: blankTotal(), REPORT05: blankTotal() };
-    GROUP_ORDER.forEach((group) => { groups[group] = blankTotal(); });
+    [...new Set([...GROUP_ORDER, ...SERIES_ORDER])].forEach((group) => { groups[group] = blankTotal(); });
     STATIONS.forEach((station) => {
-      const group = GROUP_ORDER.find((prefix) => station.startsWith(prefix));
+      const series = stationSeries(station);
+      const displayGroup = stationGroup(station);
       const reportKey = REPORT_GROUPS.THREE_AM.includes(station) ? 'REPORT03' : 'REPORT05';
+      const targetKeys = new Set([series, displayGroup, reportKey, 'ALL']);
       Object.keys(blankTotal()).forEach((field) => {
-        if (group) groups[group][field] += stats[station][field];
-        groups[reportKey][field] += stats[station][field];
-        groups.ALL[field] += stats[station][field];
+        targetKeys.forEach((key) => {
+          if (key && groups[key]) groups[key][field] += stats[station][field];
+        });
       });
     });
     return groups;
@@ -569,7 +595,7 @@
     const stats = computeAllStats(shift, 'ALL');
     const cageStats = computeAllStats(shift, 'cage');
     const palletStats = computeAllStats(shift, 'pallet');
-    const title = reportKey === 'THREE_AM' ? '03:00 CS／SS／KS 回報' : '05:00 回報';
+    const title = reportKey === 'THREE_AM' ? '03:00 CS／SS／KS 回報' : '05:00 NS／TS／E 回報';
     const lines = [`${title}｜${shift.date}`];
     stations.forEach((station) => {
       const s = stats[station];
@@ -591,6 +617,7 @@
     const lines = [
       `日期：${shift.date}`, '',
       `03:00 CS／SS／KS 回報總數：${totals.REPORT03.reportTotal}`,
+      `05:00 NS／TS／E 回報總數：${totals.REPORT05.reportTotal}`,
       `全部回報總數：${totals.ALL.reportTotal}`, '',
       '回倉紀錄：',
     ];
@@ -613,9 +640,9 @@
   }
 
   return {
-    CHUTES, STATIONS, GROUP_ORDER, STATION_GROUPS, REPORT_GROUPS, ONLINE_BULK_STATIONS, RETURN_SOURCES,
+    CHUTES, STATIONS, SERIES_ORDER, SERIES_GROUPS, GROUP_ORDER, STATION_GROUPS, REPORT_GROUPS, ONLINE_BULK_STATIONS, RETURN_SOURCES,
     CARRIERS, CARRIER_LABELS, CAGE_DEFAULT_STATIONS, CATEGORIES, CATEGORY_LABELS,
-    uid, nowIso, localDate, naturalStationSort, defaultCarrierForStation, otherCarrier, normalizeCarrier,
+    uid, nowIso, localDate, naturalStationSort, stationSeries, stationGroup, defaultCarrierForStation, otherCarrier, normalizeCarrier,
     createShift, migrateShift, emptyCounts, computeCounts, countFor, recomputeEventAfters,
     stationStats, computeAllStats, computeTotals, addEvent, setCount, chooseCarrierToDecrement,
     convertOnlineToNight, addOnlineToStations, addOnlineToAllStations, convertAllOnlineToNight,

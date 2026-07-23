@@ -1119,3 +1119,64 @@ button { touch-action: manipulation; }
   font-size: .7rem;
   font-weight: 800;
 }
+
+/* v7：新版字母群組與預設載具中班操作 */
+.quick-qty { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.default-count-list { display: grid; gap: 9px; }
+.default-count-card {
+  padding: 10px;
+  border: 1px solid #33445e;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #18243a, #111a2c);
+}
+.default-count-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.default-count-head strong { font-size: 1.08rem; }
+.default-count-head span {
+  color: var(--muted);
+  font-size: .72rem;
+  font-weight: 800;
+  text-align: right;
+}
+.default-count-control {
+  display: grid;
+  grid-template-columns: 64px minmax(76px, 1fr) 64px;
+  gap: 8px;
+  align-items: center;
+}
+.default-count-control button {
+  min-height: 58px;
+  border: 1px solid #35516a;
+  border-radius: 12px;
+  background: #18324a;
+  color: #e0f2fe;
+  font-size: 1.45rem;
+  font-weight: 900;
+}
+.default-count-control button:first-child {
+  border-color: #7f1d1d;
+  background: #3f1720;
+  color: #fecaca;
+}
+.default-count-input {
+  width: 100%;
+  min-height: 58px;
+  border: 1px solid #3a4a64;
+  border-radius: 12px;
+  background: #09111f;
+  color: #7dd3fc;
+  font-size: 1.55rem;
+  font-weight: 900;
+  text-align: center;
+}
+.default-count-input::-webkit-outer-spin-button,
+.default-count-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+@media (min-width: 600px) {
+  .default-count-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

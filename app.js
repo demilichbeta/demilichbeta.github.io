@@ -9,7 +9,7 @@
 
   const VIEW_TITLES = {
     night: '夜班產出', online: '線上未退出', inventory: '現場盤點', stats: '統計核對',
-    morning: '中班數量', transit: '過境貨', loaded: '提前載走', reports: '03:00 快速回報',
+    morning: '中班數量', transit: '過境貨', loaded: '提前載走', reports: '03:00 快速回報', reports5: '05:00 快速回報',
     returns: '回倉紀錄', events: '事件紀錄', shifts: '班次／備份',
   };
 
@@ -30,7 +30,7 @@
 
   function defaultState() {
     return {
-      version: 6,
+      version: 7,
       currentShiftId: null,
       shifts: [],
       activeView: 'night',
@@ -38,7 +38,7 @@
         statsGroup: 'ALL', statsAnomaliesOnly: false, statsCarrier: 'ALL', inventoryGroup: 'ALL',
         eventStation: 'ALL', eventCategory: 'ALL', eventCarrier: 'ALL', eventOrder: 'desc',
         nightCorrection: false, nightOtherCarrier: false, onlineOtherCarrier: false,
-        transitCarrier: 'cage', loadedCarrier: 'cage', returnCarrier: 'cage',
+        morningOtherCarrier: false, loadedOtherCarrier: false, transitCarrier: 'cage', returnCarrier: 'cage',
       },
     };
   }
@@ -46,7 +46,7 @@
   function migrateAppState(rawState) {
     const base = defaultState();
     const migrated = rawState && typeof rawState === 'object' ? rawState : base;
-    migrated.version = 6;
+    migrated.version = 7;
     migrated.shifts = Array.isArray(migrated.shifts) ? migrated.shifts : [];
     migrated.shifts.forEach((shift) => L.migrateShift(shift));
     migrated.ui = { ...base.ui, ...(migrated.ui || {}) };
@@ -55,12 +55,14 @@
     if (!['ALL', ...L.GROUP_ORDER].includes(migrated.ui.statsGroup)) migrated.ui.statsGroup = 'ALL';
     if (!['ALL', ...L.GROUP_ORDER].includes(migrated.ui.inventoryGroup)) migrated.ui.inventoryGroup = 'ALL';
     if (!['ALL', ...L.CARRIERS].includes(migrated.ui.statsCarrier)) migrated.ui.statsCarrier = 'ALL';
-    ['transitCarrier', 'loadedCarrier', 'returnCarrier'].forEach((key) => {
+    ['transitCarrier', 'returnCarrier'].forEach((key) => {
       if (!L.CARRIERS.includes(migrated.ui[key])) migrated.ui[key] = 'cage';
     });
     migrated.ui.nightCorrection = false;
     migrated.ui.nightOtherCarrier = false;
     migrated.ui.onlineOtherCarrier = false;
+    migrated.ui.morningOtherCarrier = false;
+    migrated.ui.loadedOtherCarrier = false;
     if (migrated.currentShiftId && !migrated.shifts.some((shift) => shift.id === migrated.currentShiftId)) {
       migrated.currentShiftId = migrated.shifts[0]?.id || null;
     }
@@ -203,6 +205,27 @@
     return `籠${c.cage}｜板${c.pallet}`;
   }
 
+  function groupTitle(group) {
+    if (group === 'S') return 'S 系列（SS／KS）';
+    if (group === 'E') return 'E 系列（ET／HT／YT）';
+    return `${group} 系列`;
+  }
+
+  function actionCarrier(station, useOtherCarrier) {
+    const base = L.defaultCarrierForStation(station);
+    return useOtherCarrier ? L.otherCarrier(base) : base;
+  }
+
+  function resetOneShotCarrier(category) {
+    if (category === 'morning') state.ui.morningOtherCarrier = false;
+    if (category === 'loaded') state.ui.loadedOtherCarrier = false;
+  }
+
+  async function addQuantityAdjustment(station, category, carrier, direction, quantity) {
+    resetOneShotCarrier(category);
+    return addSingle(station, category, Number(direction) * Number(quantity), carrier);
+  }
+
   function nightStationButtonsHtml(counts) {
     return L.CHUTES.map((chute) => `
       <section class="page-section">
@@ -272,46 +295,65 @@
     const counts = L.computeCounts(shift);
     const carrier = state.ui.transitCarrier;
     main.innerHTML = `
-      <section class="card"><strong>過境貨</strong><p class="small-note">先選載具，再以−1／＋1調整站所過境數。</p>${carrierModeHtml(carrier, 'transit-carrier')}</section>
-      ${L.CHUTES.map((chute) => `<section class="page-section"><h2 class="section-title">${chute.name}</h2><div class="quantity-adjust-grid">${chute.stations.map((station) => `
+      <section class="card"><strong>過境貨</strong><p class="small-note">依快速字母群組排列；先選載具，再以−1／＋1調整站所過境數。</p>${carrierModeHtml(carrier, 'transit-carrier')}</section>
+      ${L.GROUP_ORDER.map((group) => `<section class="page-section"><h2 class="section-title">${groupTitle(group)}<small>${L.STATION_GROUPS[group].length}站</small></h2><div class="quantity-adjust-grid">${L.STATION_GROUPS[group].map((station) => `
         <div class="quantity-adjust-card"><strong>${station}</strong><span>${counts[station].transit[carrier]}</span><small>${stationCarrierSummary(counts, station, 'transit')}</small><div><button data-transit-change="-1" data-station="${station}">−1</button><button data-transit-change="1" data-station="${station}">＋1</button></div></div>`).join('')}</div></section>`).join('')}`;
     main.querySelectorAll('[data-transit-carrier]').forEach((button) => button.addEventListener('click', async () => { state.ui.transitCarrier = button.dataset.transitCarrier; await saveState(); renderTransit(); }));
     main.querySelectorAll('[data-transit-change]').forEach((button) => button.addEventListener('click', () => addSingle(button.dataset.station, 'transit', Number(button.dataset.transitChange), carrier)));
   }
 
-  function openQuantity(station, category, carrier) {
+  function openQuantity(station, category, carrier, direction = 1) {
+    const sign = Number(direction) < 0 ? -1 : 1;
     el('quantityStation').value = station; el('quantityCategory').value = category; el('quantityCarrier').value = carrier;
+    el('quantityDirection').value = String(sign); el('quantityMode').value = 'adjust';
     el('quantityStationLabel').textContent = `${station}｜${carrierLabel(carrier)}`;
-    el('quantityTitle').textContent = `新增${categoryLabel(category)}`; el('customQty').value = '';
+    el('quantityTitle').textContent = `${sign > 0 ? '增加' : '減少'}${categoryLabel(category)}`; el('customQty').value = '';
+    el('customQty').placeholder = `輸入要${sign > 0 ? '增加' : '減少'}的數量`;
+    el('saveQuantityBtn').textContent = sign > 0 ? '加入' : '扣除';
+    el('quantityQuickButtons').querySelectorAll('[data-qty]').forEach((button) => { button.textContent = `${sign > 0 ? '+' : '−'}${button.dataset.qty}`; });
     quantityDialog.showModal();
   }
 
   function renderLoaded() {
     const shift = requireShift(); if (!shift) return;
     const counts = L.computeCounts(shift);
-    const carrier = state.ui.loadedCarrier;
+    const otherMode = state.ui.loadedOtherCarrier;
     main.innerHTML = `
-      <section class="card"><strong>提前載走</strong><p class="small-note">先選載具；「登記」可快速加入1、2、3、5或自訂數量，−1用於修正。</p>${carrierModeHtml(carrier, 'loaded-carrier')}</section>
-      ${L.CHUTES.map((chute) => `<section class="page-section"><h2 class="section-title">${chute.name}</h2><div class="loaded-grid">${chute.stations.map((station) => `
-        <div class="loaded-card"><strong>${station}</strong><span>${counts[station].loaded[carrier]}</span><small>${stationCarrierSummary(counts, station, 'loaded')}</small><div><button data-loaded-minus data-station="${station}">−1</button><button data-loaded-open data-station="${station}">登記</button></div></div>`).join('')}</div></section>`).join('')}`;
-    main.querySelectorAll('[data-loaded-carrier]').forEach((button) => button.addEventListener('click', async () => { state.ui.loadedCarrier = button.dataset.loadedCarrier; await saveState(); renderLoaded(); }));
-    main.querySelectorAll('[data-loaded-minus]').forEach((button) => button.addEventListener('click', () => addSingle(button.dataset.station, 'loaded', -1, carrier)));
-    main.querySelectorAll('[data-loaded-open]').forEach((button) => button.addEventListener('click', () => openQuantity(button.dataset.station, 'loaded', carrier)));
+      <section class="card"><strong>提前載走</strong><p class="small-note">依快速字母群組排列，正常採站所預設載具；偶發另一種載具時，先啟用下一筆非預設。</p></section>
+      <button type="button" class="full-width carrier-override ${otherMode ? 'active' : ''}" data-loaded-other>${otherMode ? '下一筆：使用非預設載具（完成後自動關閉）' : '下一筆改用非預設載具'}</button>
+      ${L.GROUP_ORDER.map((group) => `<section class="page-section"><h2 class="section-title">${groupTitle(group)}<small>${L.STATION_GROUPS[group].length}站</small></h2><div class="loaded-grid">${L.STATION_GROUPS[group].map((station) => {
+        const carrier = actionCarrier(station, otherMode); const category = counts[station].loaded;
+        return `<div class="loaded-card"><strong>${station}</strong><span>${category[carrier]}</span><small>${stationCarrierSummary(counts, station, 'loaded')}｜本次${carrierShort(carrier)}</small><div><button data-loaded-open data-direction="-1" data-carrier="${carrier}" data-station="${station}">減少</button><button data-loaded-open data-direction="1" data-carrier="${carrier}" data-station="${station}">登記</button></div></div>`;
+      }).join('')}</div></section>`).join('')}`;
+    main.querySelector('[data-loaded-other]').addEventListener('click', async () => { state.ui.loadedOtherCarrier = !state.ui.loadedOtherCarrier; await saveState(); renderLoaded(); });
+    main.querySelectorAll('[data-loaded-open]').forEach((button) => button.addEventListener('click', () => openQuantity(button.dataset.station, 'loaded', button.dataset.carrier, Number(button.dataset.direction))));
   }
 
-  function dualCounterHtml(station, category, counts) {
-    return `<div class="dual-count-card"><strong>${station}</strong>${L.CARRIERS.map((carrier) => `
-      <div class="dual-count-line"><span>${carrierLabel(carrier)}</span><button data-count-step="-1" data-station="${station}" data-category="${category}" data-carrier="${carrier}">−</button>
-      <input type="number" min="0" step="1" inputmode="numeric" value="${counts[station][category][carrier]}" data-set-count data-station="${station}" data-category="${category}" data-carrier="${carrier}">
-      <button data-count-step="1" data-station="${station}" data-category="${category}" data-carrier="${carrier}">＋</button></div>`).join('')}</div>`;
+  function dualCounterHtml(station, category, counts, useOtherCarrier = false) {
+    const carrier = actionCarrier(station, useOtherCarrier);
+    const value = counts[station][category][carrier];
+    return `<div class="default-count-card"><div class="default-count-head"><strong>${station}</strong><span>本次${carrierShort(carrier)}｜${stationCarrierSummary(counts, station, category)}</span></div>
+      <div class="default-count-control"><button data-open-adjust data-direction="-1" data-station="${station}" data-category="${category}" data-carrier="${carrier}">−</button>
+      <input class="default-count-input" type="number" min="0" step="1" inputmode="numeric" value="${value}" data-morning-direct data-station="${station}" data-category="${category}" data-carrier="${carrier}" aria-label="${station}${carrierLabel(carrier)}數量">
+      <button data-open-adjust data-direction="1" data-station="${station}" data-category="${category}" data-carrier="${carrier}">＋</button></div></div>`;
   }
 
   function renderMorning() {
     const shift = requireShift(); if (!shift) return;
     const counts = L.computeCounts(shift);
-    main.innerHTML = `<section class="card"><strong>00:00 中班盤點</strong><p class="small-note">依字母系列排列；籠車、棧板分開輸入。</p></section>
-      ${L.GROUP_ORDER.map((group) => `<section class="page-section"><h2 class="section-title">${group} 系列<small>${L.STATION_GROUPS[group].length}站</small></h2><div class="dual-count-list">${L.STATION_GROUPS[group].map((station) => dualCounterHtml(station, 'morning', counts)).join('')}</div></section>`).join('')}`;
-    bindCountInputs(); bindCountSteppers();
+    const otherMode = state.ui.morningOtherCarrier;
+    main.innerHTML = `<section class="card"><strong>00:00 中班盤點</strong><p class="small-note">依 NS、TS、CS、S、E 分組。正常採站所預設載具；按＋／−後可選1、2、5，點中央數字可直接輸入。</p></section>
+      <button type="button" class="full-width carrier-override ${otherMode ? 'active' : ''}" data-morning-other>${otherMode ? '下一筆：使用非預設載具（完成後自動關閉）' : '下一筆改用非預設載具'}</button>
+      ${L.GROUP_ORDER.map((group) => `<section class="page-section"><h2 class="section-title">${groupTitle(group)}<small>${L.STATION_GROUPS[group].length}站</small></h2><div class="default-count-list">${L.STATION_GROUPS[group].map((station) => dualCounterHtml(station, 'morning', counts, otherMode)).join('')}</div></section>`).join('')}`;
+    main.querySelector('[data-morning-other]').addEventListener('click', async () => { state.ui.morningOtherCarrier = !state.ui.morningOtherCarrier; await saveState(); renderMorning(); });
+    main.querySelectorAll('[data-open-adjust]').forEach((button) => button.addEventListener('click', () => openQuantity(button.dataset.station, button.dataset.category, button.dataset.carrier, Number(button.dataset.direction))));
+    main.querySelectorAll('[data-morning-direct]').forEach((input) => input.addEventListener('change', async () => {
+      const event = L.setCount(shift, input.dataset.station, input.dataset.category, Math.max(0, Number(input.value || 0)), input.dataset.carrier);
+      state.ui.morningOtherCarrier = false;
+      if (event) { await saveState(); showToast(`${input.dataset.station} ${carrierShort(input.dataset.carrier)}已保存`); }
+      else await saveState();
+      renderMorning();
+    }));
   }
 
   function renderOnline() {
@@ -357,8 +399,8 @@
     const group = state.ui.inventoryGroup;
     const groups = group === 'ALL' ? L.GROUP_ORDER : [group];
     main.innerHTML = `<section class="card"><strong>現場盤點</strong><p class="small-note">依字母系列排列；可只顯示指定系列。籠車、棧板分別輸入，右側即時顯示應有與總差異。</p>
-      <select id="inventoryGroupFilter" class="full-width-select"><option value="ALL">全部站所</option>${L.GROUP_ORDER.map((prefix) => `<option value="${prefix}" ${group === prefix ? 'selected' : ''}>只看 ${prefix}</option>`).join('')}</select></section>
-      ${groups.map((prefix) => `<section class="page-section"><h2 class="section-title">${prefix} 系列<small>${L.STATION_GROUPS[prefix].length}站</small></h2><div class="inventory-list">${L.STATION_GROUPS[prefix].map((station) => {
+      <select id="inventoryGroupFilter" class="full-width-select"><option value="ALL">全部站所</option>${L.GROUP_ORDER.map((prefix) => `<option value="${prefix}" ${group === prefix ? 'selected' : ''}>只看 ${groupTitle(prefix)}</option>`).join('')}</select></section>
+      ${groups.map((prefix) => `<section class="page-section"><h2 class="section-title">${groupTitle(prefix)}<small>${L.STATION_GROUPS[prefix].length}站</small></h2><div class="inventory-list">${L.STATION_GROUPS[prefix].map((station) => {
         const st = allStats[station]; const cls = st.difference === 0 ? 'difference-good' : 'difference-bad';
         return `<div class="inventory-card ${cls}" data-inventory-row="${station}"><div class="inventory-head"><strong>${station}</strong><span>應${st.expected}｜差${st.difference}</span></div>
           <div class="inventory-inputs">${L.CARRIERS.map((carrier) => `<label>${carrierLabel(carrier)}<input type="number" min="0" step="1" inputmode="numeric" value="${counts[station].actual[carrier]}" data-set-count data-station="${station}" data-category="actual" data-carrier="${carrier}"></label>`).join('')}</div></div>`;
@@ -399,13 +441,13 @@
     const groupSections = groups.map((prefix) => {
       const stations = L.STATION_GROUPS[prefix].filter((station) => !anomaliesOnly || stats[station].difference !== 0);
       if (!stations.length) return '';
-      return `<section class="page-section"><h2 class="section-title">${prefix} 系列<small>${stations.length}站</small></h2>${stations.map((station) => statsCard(station, stats[station], allStats[station], cageStats[station], palletStats[station], carrier)).join('')}</section>`;
+      return `<section class="page-section"><h2 class="section-title">${groupTitle(prefix)}<small>${stations.length}站</small></h2>${stations.map((station) => statsCard(station, stats[station], allStats[station], cageStats[station], palletStats[station], carrier)).join('')}</section>`;
     }).join('');
     main.innerHTML = `
       ${carrierModeHtml(carrier, 'stats-carrier', true)}
       <div class="stats-totals"><div class="total-card"><span>03:00回報</span><strong>${totals.REPORT03.reportTotal}</strong></div><div class="total-card"><span>05:00回報</span><strong>${totals.REPORT05.reportTotal}</strong></div><div class="total-card"><span>全部回報</span><strong>${totals.ALL.reportTotal}</strong></div></div>
-      <div class="series-total-strip">${L.GROUP_ORDER.map((prefix) => `<span>${prefix}<b>${totals[prefix].reportTotal}</b></span>`).join('')}</div>
-      <div class="filter-row"><select id="statsGroupFilter"><option value="ALL">全部站所</option>${L.GROUP_ORDER.map((prefix) => `<option value="${prefix}" ${group === prefix ? 'selected' : ''}>只看${prefix}</option>`).join('')}</select><label class="toggle"><input id="anomalyToggle" type="checkbox" ${anomaliesOnly ? 'checked' : ''}>只顯示異常</label></div>
+      <div class="series-total-strip">${L.SERIES_ORDER.map((prefix) => `<span>${prefix}<b>${totals[prefix].reportTotal}</b></span>`).join('')}</div>
+      <div class="filter-row"><select id="statsGroupFilter"><option value="ALL">全部站所</option>${L.GROUP_ORDER.map((prefix) => `<option value="${prefix}" ${group === prefix ? 'selected' : ''}>只看${groupTitle(prefix)}</option>`).join('')}</select><label class="toggle"><input id="anomalyToggle" type="checkbox" ${anomaliesOnly ? 'checked' : ''}>只顯示異常</label></div>
       <div>${groupSections || '<div class="empty-state">沒有符合條件的站所。</div>'}</div>`;
     main.querySelectorAll('[data-stats-carrier]').forEach((button) => button.addEventListener('click', async () => { state.ui.statsCarrier = button.dataset.statsCarrier; await saveState(); renderStats(); }));
     el('statsGroupFilter').value = group;
@@ -425,16 +467,25 @@
     showToast(successMessage);
   }
 
-  function renderReports() {
+  function renderReportPage(reportKey) {
     const shift = requireShift(); if (!shift) return;
+    const isThree = reportKey === 'THREE_AM';
+    const stations = L.REPORT_GROUPS[reportKey];
     const stats = L.computeAllStats(shift, 'ALL'); const cage = L.computeAllStats(shift, 'cage'); const pallet = L.computeAllStats(shift, 'pallet');
     const totals = L.computeTotals(shift, 'ALL');
-    main.innerHTML = `<section class="card"><strong>03:00 派車快速回報</strong><p class="small-note">CS／SS／KS；總數下方保留籠車／棧板細分。</p></section>
-      <div class="report-summary"><div class="total-card"><span>03:00合計</span><strong>${totals.REPORT03.reportTotal}</strong></div><div class="total-card"><span>CS／SS／KS</span><strong>${L.REPORT_GROUPS.THREE_AM.length}站</strong></div></div>
-      <button id="copyReportBtn" class="primary-btn full-width report-copy-btn">複製03:00回報文字</button>
-      <div class="report-list">${L.REPORT_GROUPS.THREE_AM.map((station) => { const s = stats[station]; return `<div class="report-row"><strong>${station}</strong><span><small>中</small>${s.morning}</span><span><small>夜</small>${s.night}</span><span><small>過</small>${s.transit}</span><span class="report-total"><small>總</small>${s.reportTotal}<em>籠${cage[station].reportTotal}／板${pallet[station].reportTotal}</em></span></div>`; }).join('')}</div>`;
-    el('copyReportBtn').addEventListener('click', () => copyText(L.makeReportText(shift, 'THREE_AM'), '03:00回報已複製'));
+    const time = isThree ? '03:00' : '05:00';
+    const scope = isThree ? 'CS／SS／KS' : 'NS／TS／E';
+    const totalKey = isThree ? 'REPORT03' : 'REPORT05';
+    main.innerHTML = `<section class="card"><strong>${time} 派車快速回報</strong><p class="small-note">${scope}；總數下方保留籠車／棧板細分。</p></section>
+      <div class="report-summary"><div class="total-card"><span>${time}合計</span><strong>${totals[totalKey].reportTotal}</strong></div><div class="total-card"><span>${scope}</span><strong>${stations.length}站</strong></div></div>
+      <button id="copyReportBtn" class="primary-btn full-width report-copy-btn">複製${time}回報文字</button>
+      <div class="report-list">${stations.map((station) => { const st = stats[station]; return `<div class="report-row"><strong>${station}</strong><span><small>中</small>${st.morning}</span><span><small>夜</small>${st.night}</span><span><small>過</small>${st.transit}</span><span class="report-total"><small>總</small>${st.reportTotal}<em>籠${cage[station].reportTotal}／板${pallet[station].reportTotal}</em></span></div>`; }).join('')}</div>`;
+    el('copyReportBtn').addEventListener('click', () => copyText(L.makeReportText(shift, reportKey), `${time}回報已複製`));
   }
+
+  function renderReports() { renderReportPage('THREE_AM'); }
+
+  function renderReports5() { renderReportPage('FIVE_AM'); }
 
   function renderReturns() {
     const shift = requireShift(); if (!shift) return;
@@ -523,7 +574,7 @@
   function downloadFile(filename, content, type) { const blob = new Blob([content], { type }); const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = filename; document.body.appendChild(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(url), 1200); }
   function exportCurrentCSV() { const shift = currentShift(); if (!shift) return showToast('尚無班次'); downloadFile(`點貨事件_${shift.date}.csv`, L.makeShiftCSV(shift), 'text/csv;charset=utf-8'); showToast('CSV已匯出'); }
   function exportReturnCSV() { const shift = currentShift(); if (!shift) return showToast('尚無班次'); downloadFile(`回倉紀錄_${shift.date}.csv`, L.makeReturnBatchCSV(shift), 'text/csv;charset=utf-8'); showToast('回倉CSV已匯出'); }
-  function exportAllJSON() { const payload = { app: '物流夜班點貨', schemaVersion: 6, exportedAt: new Date().toISOString(), state }; downloadFile(`夜班點貨_完整備份_${L.localDate()}.json`, JSON.stringify(payload, null, 2), 'application/json'); showToast('JSON備份已匯出'); }
+  function exportAllJSON() { const payload = { app: '物流夜班點貨', schemaVersion: 7, exportedAt: new Date().toISOString(), state }; downloadFile(`夜班點貨_完整備份_${L.localDate()}.json`, JSON.stringify(payload, null, 2), 'application/json'); showToast('JSON備份已匯出'); }
 
   async function importJSON(event) {
     const file = event.target.files?.[0]; if (!file) return;
@@ -545,7 +596,7 @@
     updateHeader();
     switch (state.activeView) {
       case 'night': renderNight(); break; case 'online': renderOnline(); break; case 'inventory': renderInventory(); break; case 'stats': renderStats(); break;
-      case 'morning': renderMorning(); break; case 'transit': renderTransit(); break; case 'loaded': renderLoaded(); break; case 'reports': renderReports(); break;
+      case 'morning': renderMorning(); break; case 'transit': renderTransit(); break; case 'loaded': renderLoaded(); break; case 'reports': renderReports(); break; case 'reports5': renderReports5(); break;
       case 'returns': renderReturns(); break; case 'events': renderEvents(); break; case 'shifts': renderShifts(); break; default: state.activeView = 'night'; renderNight();
     }
     if (state.activeView !== 'night') hideUndoBar();
@@ -557,6 +608,8 @@
   async function switchView(view) {
     if (state.activeView === 'night' && view !== 'night') { nightUndoOperationId = null; undoDismissed = false; state.ui.nightCorrection = false; state.ui.nightOtherCarrier = false; hideUndoBar(); }
     if (state.activeView === 'online' && view !== 'online') state.ui.onlineOtherCarrier = false;
+    if (state.activeView === 'morning' && view !== 'morning') state.ui.morningOtherCarrier = false;
+    if (state.activeView === 'loaded' && view !== 'loaded') state.ui.loadedOtherCarrier = false;
     state.activeView = view; await saveState(); closeDrawer(); renderCurrentView(); window.scrollTo({ top: 0, behavior: 'auto' });
   }
 
@@ -578,7 +631,8 @@
 
   async function saveCustomQuantity(event) {
     event.preventDefault(); const qty = Number(el('customQty').value); if (!Number.isFinite(qty) || qty <= 0) return showToast('請輸入大於0的數量');
-    const station = el('quantityStation').value; const category = el('quantityCategory').value; const carrier = el('quantityCarrier').value; quantityDialog.close(); await addSingle(station, category, qty, carrier);
+    const station = el('quantityStation').value; const category = el('quantityCategory').value; const carrier = el('quantityCarrier').value; const direction = Number(el('quantityDirection').value || 1); quantityDialog.close();
+    await addQuantityAdjustment(station, category, carrier, direction, qty);
   }
 
   function setupStaticListeners() {
@@ -586,7 +640,7 @@
     el('undoBtn').addEventListener('click', async () => { const shift = currentShift(); if (!shift || !nightUndoOperationId) return showToast('沒有可復原紀錄'); const removed = L.undoOperation(shift, nightUndoOperationId); if (!removed.length) return showToast('紀錄已不存在'); nightUndoOperationId = null; undoDismissed = false; await saveState(); vibrate(70); showToast(`已復原：${removed[0].station}${carrierShort(removed[0].carrier)}`); renderCurrentView(); });
     el('undoCloseBtn').addEventListener('click', () => { undoDismissed = true; hideUndoBar(); });
     el('eventEditForm').addEventListener('submit', saveEventEdit); el('quantityForm').addEventListener('submit', saveCustomQuantity);
-    document.querySelectorAll('[data-qty]').forEach((button) => button.addEventListener('click', async () => { const station = el('quantityStation').value; const category = el('quantityCategory').value; const carrier = el('quantityCarrier').value; quantityDialog.close(); await addSingle(station, category, Number(button.dataset.qty), carrier); }));
+    document.querySelectorAll('[data-qty]').forEach((button) => button.addEventListener('click', async () => { const station = el('quantityStation').value; const category = el('quantityCategory').value; const carrier = el('quantityCarrier').value; const direction = Number(el('quantityDirection').value || 1); quantityDialog.close(); await addQuantityAdjustment(station, category, carrier, direction, Number(button.dataset.qty)); }));
     bindViewLinks();
     window.addEventListener('beforeinstallprompt', (event) => { event.preventDefault(); deferredInstallPrompt = event; el('installBtn').classList.remove('hidden'); });
     el('installBtn').addEventListener('click', async () => { if (!deferredInstallPrompt) return; deferredInstallPrompt.prompt(); await deferredInstallPrompt.userChoice; deferredInstallPrompt = null; el('installBtn').classList.add('hidden'); });
