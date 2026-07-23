@@ -8,8 +8,8 @@
   const STATE_KEY = 'app-state';
 
   const VIEW_TITLES = {
-    night: '夜班產出', online: '線上未退出', inventory: '現場盤點', stats: '統計核對',
-    morning: '中班數量', transit: '過境貨', loaded: '提前載走', reports: '03:00 快速回報', reports5: '05:00 快速回報',
+    night: '夜班產出', online: '二次分理', inventory: '現場盤點', reports: '快速回報', stats: '統計核對',
+    morning: '中班數量', transit: '過境貨', loaded: '提前載走',
     returns: '回倉紀錄', events: '事件紀錄', shifts: '班次／備份',
   };
 
@@ -30,7 +30,7 @@
 
   function defaultState() {
     return {
-      version: 7,
+      version: 8,
       currentShiftId: null,
       shifts: [],
       activeView: 'night',
@@ -38,7 +38,7 @@
         statsGroup: 'ALL', statsAnomaliesOnly: false, statsCarrier: 'ALL', inventoryGroup: 'ALL',
         eventStation: 'ALL', eventCategory: 'ALL', eventCarrier: 'ALL', eventOrder: 'desc',
         nightCorrection: false, nightOtherCarrier: false, onlineOtherCarrier: false,
-        morningOtherCarrier: false, loadedOtherCarrier: false, transitCarrier: 'cage', returnCarrier: 'cage',
+        morningOtherCarrier: false, loadedOtherCarrier: false, transitCarrier: 'cage', returnCarrier: 'cage', reportMode: 'THREE_AM',
       },
     };
   }
@@ -46,15 +46,17 @@
   function migrateAppState(rawState) {
     const base = defaultState();
     const migrated = rawState && typeof rawState === 'object' ? rawState : base;
-    migrated.version = 7;
+    migrated.version = 8;
     migrated.shifts = Array.isArray(migrated.shifts) ? migrated.shifts : [];
     migrated.shifts.forEach((shift) => L.migrateShift(shift));
     migrated.ui = { ...base.ui, ...(migrated.ui || {}) };
     const validViews = new Set(Object.keys(VIEW_TITLES));
+    if (migrated.activeView === 'reports5') migrated.activeView = 'reports';
     if (!validViews.has(migrated.activeView)) migrated.activeView = 'night';
     if (!['ALL', ...L.GROUP_ORDER].includes(migrated.ui.statsGroup)) migrated.ui.statsGroup = 'ALL';
     if (!['ALL', ...L.GROUP_ORDER].includes(migrated.ui.inventoryGroup)) migrated.ui.inventoryGroup = 'ALL';
     if (!['ALL', ...L.CARRIERS].includes(migrated.ui.statsCarrier)) migrated.ui.statsCarrier = 'ALL';
+    if (!['THREE_AM', 'FIVE_AM'].includes(migrated.ui.reportMode)) migrated.ui.reportMode = 'THREE_AM';
     ['transitCarrier', 'returnCarrier'].forEach((key) => {
       if (!L.CARRIERS.includes(migrated.ui[key])) migrated.ui[key] = 'cage';
     });
@@ -295,7 +297,8 @@
     const counts = L.computeCounts(shift);
     const carrier = state.ui.transitCarrier;
     main.innerHTML = `
-      <section class="card"><strong>過境貨</strong><p class="small-note">依快速字母群組排列；先選載具，再以−1／＋1調整站所過境數。</p>${carrierModeHtml(carrier, 'transit-carrier')}</section>
+      <section class="card"><strong>過境貨</strong><p class="small-note">依快速字母群組排列；先選載具，再以−1／＋1調整站所過境數。</p></section>
+      <div class="sticky-control-bar"><span>目前記錄載具：<b>${carrierLabel(carrier)}</b></span>${carrierModeHtml(carrier, 'transit-carrier')}</div>
       ${L.GROUP_ORDER.map((group) => `<section class="page-section"><h2 class="section-title">${groupTitle(group)}<small>${L.STATION_GROUPS[group].length}站</small></h2><div class="quantity-adjust-grid">${L.STATION_GROUPS[group].map((station) => `
         <div class="quantity-adjust-card"><strong>${station}</strong><span>${counts[station].transit[carrier]}</span><small>${stationCarrierSummary(counts, station, 'transit')}</small><div><button data-transit-change="-1" data-station="${station}">−1</button><button data-transit-change="1" data-station="${station}">＋1</button></div></div>`).join('')}</div></section>`).join('')}`;
     main.querySelectorAll('[data-transit-carrier]').forEach((button) => button.addEventListener('click', async () => { state.ui.transitCarrier = button.dataset.transitCarrier; await saveState(); renderTransit(); }));
@@ -360,24 +363,29 @@
     const shift = requireShift(); if (!shift) return;
     const counts = L.computeCounts(shift);
     const otherMode = state.ui.onlineOtherCarrier;
+    const completed = L.STATIONS.map((station) => ({ station, counts: counts[station].secondary, total: L.countFor(counts[station].secondary, 'ALL') })).filter((item) => item.total > 0);
+    const completedTotal = completed.reduce((sum, item) => sum + item.total, 0);
     main.innerHTML = `
-      <section class="card"><strong>04:30 線上未退出</strong><p class="small-note">「全部＋1」只套用 NS／TS；個別例外可啟用下一筆非預設。綠框代表已清零，橘框代表尚待轉完成。</p>
-        <div class="bulk-online-actions"><button class="primary-btn" data-online-all-add>全部 NS／TS ${L.ONLINE_BULK_STATIONS.length} 站＋1</button><button class="secondary-btn" data-convert-all-online>全部線上轉完成</button></div>
+      <section class="card"><strong>二次分理</strong><p class="small-note"><b>轉完成才計算數量。</b>尚未轉完成的數字只代表待處理，不會進入統計核對或快速回報。</p>
+        <div class="bulk-online-actions"><button class="primary-btn" data-online-all-add>全部 NS／TS ${L.ONLINE_BULK_STATIONS.length} 站＋1</button><button class="secondary-btn" data-convert-all-online>全部待處理轉完成</button></div>
       </section>
       <button type="button" class="full-width carrier-override ${otherMode ? 'active' : ''}" data-online-other>${otherMode ? '下一筆：使用非預設載具（按＋1後自動關閉）' : '下一筆改用非預設載具'}</button>
       ${L.CHUTES.map((chute) => `<section class="online-chute-section"><h2 class="online-chute-title">${chute.name}</h2><div class="input-list">${chute.stations.map((station) => {
-        const online = counts[station].online; const total = L.countFor(online, 'ALL'); const zero = total === 0;
+        const pending = counts[station].online; const total = L.countFor(pending, 'ALL'); const zero = total === 0;
         return `<div class="online-row ${zero ? 'online-zero' : 'online-pending'}"><strong>${station}</strong><button class="online-adjust minus" data-online-change="-1" data-station="${station}">−1</button>
-          <span class="online-count"><b>${total}</b><small>籠${online.cage}／板${online.pallet}</small></span><button class="online-adjust plus" data-online-change="1" data-station="${station}">＋1</button>
-          <button class="online-convert" data-convert-online data-station="${station}" ${zero ? 'disabled' : ''}>${zero ? '已完成' : '轉完成'}</button></div>`;
-      }).join('')}</div></section>`).join('')}`;
+          <span class="online-count"><b>${total}</b><small>待處理｜籠${pending.cage}／板${pending.pallet}</small></span><button class="online-adjust plus" data-online-change="1" data-station="${station}">＋1</button>
+          <button class="online-convert" data-convert-online data-station="${station}" ${zero ? 'disabled' : ''}>${zero ? '無待處理' : '轉完成'}</button></div>`;
+      }).join('')}</div></section>`).join('')}
+      <section class="page-section secondary-completed-section"><h2 class="section-title">已轉完成紀錄<small>二次分理合計 ${completedTotal}</small></h2>
+        <div class="secondary-completed-list">${completed.length ? completed.map((item) => `<div><strong>${item.station}</strong><span>${item.total}</span><small>籠${item.counts.cage}／板${item.counts.pallet}</small></div>`).join('') : '<div class="empty-state">尚無已轉完成的二次分理數量。</div>'}</div>
+      </section>`;
 
     main.querySelector('[data-online-other]').addEventListener('click', async () => { state.ui.onlineOtherCarrier = !state.ui.onlineOtherCarrier; await saveState(); renderOnline(); });
     main.querySelector('[data-online-all-add]').addEventListener('click', async () => {
-      const result = L.addOnlineToAllStations(shift, 1); await saveState(); vibrate(80); renderCurrentView(); showToast(`NS／TS 共${result.stations}站已依預設載具＋1`);
+      const result = L.addOnlineToAllStations(shift, 1); await saveState(); vibrate(80); renderCurrentView(); showToast(`NS／TS 共${result.stations}站待處理已依預設載具＋1`);
     });
     main.querySelector('[data-convert-all-online]').addEventListener('click', async () => {
-      try { const result = L.convertAllOnlineToNight(shift); await saveState(); vibrate(90); renderCurrentView(); showToast(`已轉完成${result.quantity}個載具`); }
+      try { const result = L.convertAllOnlineToSecondary(shift); await saveState(); vibrate(90); renderCurrentView(); showToast(`二次分理已轉完成${result.quantity}個載具`); }
       catch (error) { showToast(error.message); }
     });
     main.querySelectorAll('[data-online-change]').forEach((button) => button.addEventListener('click', async () => {
@@ -387,7 +395,7 @@
       state.ui.onlineOtherCarrier = false; await addSingle(station, 'online', 1, carrier);
     }));
     main.querySelectorAll('[data-convert-online]').forEach((button) => button.addEventListener('click', async () => {
-      try { const qty = L.convertOnlineToNight(shift, button.dataset.station, 'ALL'); await saveState(); vibrate(65); renderCurrentView(); showToast(`${button.dataset.station} 已轉完成${qty}`); }
+      try { const qty = L.convertOnlineToSecondary(shift, button.dataset.station, 'ALL'); await saveState(); vibrate(65); renderCurrentView(); showToast(`${button.dataset.station} 二次分理已轉完成${qty}`); }
       catch (error) { showToast(error.message); }
     }));
   }
@@ -457,7 +465,7 @@
 
   function statsCard(station, s, all, cage, pallet, carrier) {
     const bad = s.difference !== 0;
-    const fields = [['中班', s.morning], ['夜班', s.night], ['過境', s.transit], ['線上', s.online], ['回報', s.reportTotal], ['載走', s.loaded], ['應有', s.expected], ['現場', s.actual], ['差異', s.difference]];
+    const fields = [['中班', s.morning], ['夜班', s.night], ['過境', s.transit], ['二分', s.secondary], ['回報', s.reportTotal], ['載走', s.loaded], ['應有', s.expected], ['現場', s.actual], ['差異', s.difference]];
     return `<article class="card stats-card ${bad ? 'bad' : ''}"><div class="stats-card-head"><div><strong>${station}</strong>${carrier === 'ALL' ? `<small>回報：籠${cage.reportTotal}／板${pallet.reportTotal}</small>` : `<small>目前檢視：${carrierLabel(carrier)}｜合計${all.reportTotal}</small>`}</div><span class="status-pill">${bad ? '差異異常' : '正常'}</span></div><div class="stats-grid">${fields.map(([label, value]) => `<div class="stat-cell"><span>${label}</span><b>${value}</b></div>`).join('')}</div></article>`;
   }
 
@@ -467,8 +475,9 @@
     showToast(successMessage);
   }
 
-  function renderReportPage(reportKey) {
+  function renderReports() {
     const shift = requireShift(); if (!shift) return;
+    const reportKey = state.ui.reportMode;
     const isThree = reportKey === 'THREE_AM';
     const stations = L.REPORT_GROUPS[reportKey];
     const stats = L.computeAllStats(shift, 'ALL'); const cage = L.computeAllStats(shift, 'cage'); const pallet = L.computeAllStats(shift, 'pallet');
@@ -476,16 +485,15 @@
     const time = isThree ? '03:00' : '05:00';
     const scope = isThree ? 'CS／SS／KS' : 'NS／TS／E';
     const totalKey = isThree ? 'REPORT03' : 'REPORT05';
-    main.innerHTML = `<section class="card"><strong>${time} 派車快速回報</strong><p class="small-note">${scope}；總數下方保留籠車／棧板細分。</p></section>
+    main.innerHTML = `
+      <div class="sticky-control-bar report-switch-bar"><span>派車快速回報</span><div class="report-mode-switch"><button class="${isThree ? 'active' : ''}" data-report-mode="THREE_AM">03:00</button><button class="${!isThree ? 'active' : ''}" data-report-mode="FIVE_AM">05:00</button></div></div>
+      <section class="card"><strong>${time} 派車快速回報</strong><p class="small-note">${scope}；總數包含已轉完成的二次分理，未轉完成的待處理數不計入。</p></section>
       <div class="report-summary"><div class="total-card"><span>${time}合計</span><strong>${totals[totalKey].reportTotal}</strong></div><div class="total-card"><span>${scope}</span><strong>${stations.length}站</strong></div></div>
       <button id="copyReportBtn" class="primary-btn full-width report-copy-btn">複製${time}回報文字</button>
-      <div class="report-list">${stations.map((station) => { const st = stats[station]; return `<div class="report-row"><strong>${station}</strong><span><small>中</small>${st.morning}</span><span><small>夜</small>${st.night}</span><span><small>過</small>${st.transit}</span><span class="report-total"><small>總</small>${st.reportTotal}<em>籠${cage[station].reportTotal}／板${pallet[station].reportTotal}</em></span></div>`; }).join('')}</div>`;
+      <div class="report-list">${stations.map((station) => { const st = stats[station]; return `<div class="report-row"><strong>${station}</strong><span><small>中</small>${st.morning}</span><span><small>夜</small>${st.night}</span><span><small>過</small>${st.transit}</span><span><small>二</small>${st.secondary}</span><span class="report-total"><small>總</small>${st.reportTotal}<em>籠${cage[station].reportTotal}／板${pallet[station].reportTotal}</em></span></div>`; }).join('')}</div>`;
+    main.querySelectorAll('[data-report-mode]').forEach((button) => button.addEventListener('click', async () => { state.ui.reportMode = button.dataset.reportMode; await saveState(); renderReports(); }));
     el('copyReportBtn').addEventListener('click', () => copyText(L.makeReportText(shift, reportKey), `${time}回報已複製`));
   }
-
-  function renderReports() { renderReportPage('THREE_AM'); }
-
-  function renderReports5() { renderReportPage('FIVE_AM'); }
 
   function renderReturns() {
     const shift = requireShift(); if (!shift) return;
@@ -495,8 +503,8 @@
     const currentBucket = L.currentReturnBucket();
     const sources = [...L.RETURN_SOURCES, ...Object.keys(returns.bySource).filter((source) => !L.RETURN_SOURCES.includes(source))];
     main.innerHTML = `
-      <section class="card"><strong>回倉紀錄</strong><p class="small-note">不需輸入時間；每次＋1會自動歸入目前30分鐘時段。−1會撤銷該來源、該載具最近一筆，並同步修正原時段。</p>
-        <div class="current-bucket">目前時段：<b>${currentBucket.label}</b></div>${carrierModeHtml(carrier, 'return-carrier')}</section>
+      <section class="card"><strong>回倉紀錄</strong><p class="small-note">不需輸入時間；每次＋1會自動歸入目前30分鐘時段。−1會撤銷該來源、該載具最近一筆，並同步修正原時段。</p></section>
+      <div class="sticky-control-bar"><span>目前時段 <b>${currentBucket.label}</b>｜載具 <b>${carrierLabel(carrier)}</b></span>${carrierModeHtml(carrier, 'return-carrier')}</div>
       <section class="card return-note-card"><label for="returnNoteInput"><strong>特殊狀況備註</strong></label><textarea id="returnNoteInput" maxlength="160" rows="3" placeholder="例如：司機延遲、貨況異常、來源混載……"></textarea><button id="saveReturnNoteBtn" class="secondary-btn full-width">儲存備註至目前時段</button></section>
       <div class="return-source-grid">${sources.map((source) => { const value = returns.bySource[source] || { cage: 0, pallet: 0, total: 0 }; return `<div class="return-source-card"><strong>${source}</strong><span>${value[carrier]}</span><small>籠${value.cage}｜板${value.pallet}</small><div><button class="return-minus" data-return-change="-1" data-return-source="${source}">−1</button><button class="return-plus" data-return-change="1" data-return-source="${source}">＋1</button></div></div>`; }).join('')}</div>
       <section class="card return-grand-total"><span>回倉合計</span><strong>${returns.carrierTotals.total}</strong><small>籠${returns.carrierTotals.cage}｜板${returns.carrierTotals.pallet}</small></section>
@@ -574,7 +582,7 @@
   function downloadFile(filename, content, type) { const blob = new Blob([content], { type }); const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = filename; document.body.appendChild(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(url), 1200); }
   function exportCurrentCSV() { const shift = currentShift(); if (!shift) return showToast('尚無班次'); downloadFile(`點貨事件_${shift.date}.csv`, L.makeShiftCSV(shift), 'text/csv;charset=utf-8'); showToast('CSV已匯出'); }
   function exportReturnCSV() { const shift = currentShift(); if (!shift) return showToast('尚無班次'); downloadFile(`回倉紀錄_${shift.date}.csv`, L.makeReturnBatchCSV(shift), 'text/csv;charset=utf-8'); showToast('回倉CSV已匯出'); }
-  function exportAllJSON() { const payload = { app: '物流夜班點貨', schemaVersion: 7, exportedAt: new Date().toISOString(), state }; downloadFile(`夜班點貨_完整備份_${L.localDate()}.json`, JSON.stringify(payload, null, 2), 'application/json'); showToast('JSON備份已匯出'); }
+  function exportAllJSON() { const payload = { app: '物流夜班點貨', schemaVersion: 8, exportedAt: new Date().toISOString(), state }; downloadFile(`夜班點貨_完整備份_${L.localDate()}.json`, JSON.stringify(payload, null, 2), 'application/json'); showToast('JSON備份已匯出'); }
 
   async function importJSON(event) {
     const file = event.target.files?.[0]; if (!file) return;
@@ -595,8 +603,8 @@
   function renderCurrentView() {
     updateHeader();
     switch (state.activeView) {
-      case 'night': renderNight(); break; case 'online': renderOnline(); break; case 'inventory': renderInventory(); break; case 'stats': renderStats(); break;
-      case 'morning': renderMorning(); break; case 'transit': renderTransit(); break; case 'loaded': renderLoaded(); break; case 'reports': renderReports(); break; case 'reports5': renderReports5(); break;
+      case 'night': renderNight(); break; case 'online': renderOnline(); break; case 'inventory': renderInventory(); break; case 'reports': renderReports(); break; case 'stats': renderStats(); break;
+      case 'morning': renderMorning(); break; case 'transit': renderTransit(); break; case 'loaded': renderLoaded(); break;
       case 'returns': renderReturns(); break; case 'events': renderEvents(); break; case 'shifts': renderShifts(); break; default: state.activeView = 'night'; renderNight();
     }
     if (state.activeView !== 'night') hideUndoBar();

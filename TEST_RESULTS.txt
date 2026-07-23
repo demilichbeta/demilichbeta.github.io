@@ -1,10 +1,16 @@
-物流夜班點貨 PWA v7 自動測試結果
-測試日期：2026-07-23
+物流夜班點貨 PWA v8 自動測試結果
+日期：2026-07-23
 
-PASS: v7 字母群組、滑道順序、載具統計、03:00／05:00 回報與資料遷移通過。
-PASS: v7 導覽、快速分類、中班預設載具、載走預設載具、05:00 回報與離線快取靜態檢查通過。
-PASS: logic.js JavaScript 語法正確。
-PASS: app.js JavaScript 語法正確。
-PASS: manifest.json 格式正確。
-PASS: 390px Android 瀏覽器互動測試已完成：中班1/2/5、非預設載具、過境分類、載走載具、05:00回報與統計排序。
-PASS: 390px 寬度 document scrollWidth = viewport width，未偵測到水平頁面溢出。
+PASS：JavaScript 語法檢查通過。
+PASS：42個站所與既有載具預設保持不變。
+PASS：二次分理待處理數不列入統計與快速回報。
+PASS：個別「轉完成」會將待處理移入二分，並增加回報總數。
+PASS：全部待處理轉完成遵守相同計算規則。
+PASS：03:00／05:00 回報文字包含二分數量。
+PASS：v7 舊資料可遷移至 schemaVersion 8。
+PASS：底部功能為夜班、盤點、回報、統計。
+PASS：二次分理位於其他功能。
+PASS：過境與回倉具有固定載具切換工具列。
+PASS：PWA manifest、圖示及 Service Worker v8 快取清單完整。
+
+限制：Android 實際觸控手感、固定工具列高度與安裝後離線開啟，仍需使用者在手機實機確認。

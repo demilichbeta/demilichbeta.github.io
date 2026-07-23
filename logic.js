@@ -63,13 +63,14 @@
     'YT1', 'HT1', 'ET3',
   ]);
 
-  const CATEGORIES = ['morning', 'night', 'transit', 'loaded', 'online', 'actual'];
+  const CATEGORIES = ['morning', 'night', 'transit', 'loaded', 'online', 'secondary', 'actual'];
   const CATEGORY_LABELS = {
     morning: '中班',
     night: '夜班',
     transit: '過境',
     loaded: '載走',
-    online: '線上',
+    online: '二分待完成',
+    secondary: '二分',
     actual: '現場',
   };
 
@@ -120,7 +121,7 @@
       returnNotes: [],
       returnBatches: [],
       returnCounts: {},
-      schemaVersion: 7,
+      schemaVersion: 8,
     };
     if (previousMorning) {
       const operationId = uid('copy');
@@ -205,7 +206,7 @@
         text: String(item.text || '').trim(),
       }));
 
-    shift.schemaVersion = 7;
+    shift.schemaVersion = 8;
     recomputeEventAfters(shift);
     return shift;
   }
@@ -262,12 +263,14 @@
     const night = countFor(count.night, carrier);
     const transit = countFor(count.transit, carrier);
     const online = countFor(count.online, carrier);
+    const secondary = countFor(count.secondary, carrier);
     const loaded = countFor(count.loaded, carrier);
     const actual = countFor(count.actual, carrier);
-    const reportTotal = morning + night + transit + online;
+    // 二次分理只有「轉完成」後的 secondary 才列入回報；online 僅是待處理數。
+    const reportTotal = morning + night + transit + secondary;
     const expected = reportTotal - loaded;
     const difference = actual - expected;
-    return { morning, night, transit, online, loaded, actual, reportTotal, expected, difference };
+    return { morning, night, transit, online, secondary, loaded, actual, reportTotal, expected, difference };
   }
 
   function computeAllStats(shift, carrier = 'ALL') {
@@ -278,7 +281,7 @@
   }
 
   function blankTotal() {
-    return { morning: 0, night: 0, transit: 0, online: 0, loaded: 0, reportTotal: 0, expected: 0, actual: 0, difference: 0 };
+    return { morning: 0, night: 0, transit: 0, online: 0, secondary: 0, loaded: 0, reportTotal: 0, expected: 0, actual: 0, difference: 0 };
   }
 
   function computeTotals(shift, carrier = 'ALL') {
@@ -341,17 +344,17 @@
     return counts[alternate] > 0 ? alternate : preferred;
   }
 
-  function convertOnlineToNight(shift, station, carrier = 'ALL') {
+  function convertOnlineToSecondary(shift, station, carrier = 'ALL') {
     const counts = computeCounts(shift)[station].online;
     const carriers = carrier === 'ALL' ? CARRIERS : [normalizeCarrier(carrier, station)];
     const targets = carriers.map((key) => ({ carrier: key, qty: counts[key] })).filter((item) => item.qty > 0);
-    if (!targets.length) throw new Error('此站所沒有可轉完成的線上載具');
+    if (!targets.length) throw new Error('此站所沒有可轉完成的二次分理載具');
     const operationId = uid('convert');
     const timestamp = nowIso();
     let total = 0;
     targets.forEach((item) => {
-      addEvent(shift, { station, category: 'online', carrier: item.carrier, delta: -item.qty, note: '線上轉夜班完成', timestamp, operationId });
-      addEvent(shift, { station, category: 'night', carrier: item.carrier, delta: item.qty, note: '線上轉夜班完成', timestamp, operationId });
+      addEvent(shift, { station, category: 'online', carrier: item.carrier, delta: -item.qty, note: '二次分理轉完成', timestamp, operationId });
+      addEvent(shift, { station, category: 'secondary', carrier: item.carrier, delta: item.qty, note: '二次分理轉完成', timestamp, operationId });
       total += item.qty;
     });
     return total;
@@ -364,7 +367,7 @@
     const timestamp = nowIso();
     targetStations.forEach((station) => addEvent(shift, {
       station, category: 'online', carrier: defaultCarrierForStation(station), delta: qty,
-      note: '04:30 NS／TS 全部線上加一', timestamp, operationId,
+      note: 'NS／TS 二次分理全部待處理加一', timestamp, operationId,
     }));
     return { stations: targetStations.length, quantity: targetStations.length * qty };
   }
@@ -373,20 +376,20 @@
     return addOnlineToStations(shift, ONLINE_BULK_STATIONS, amount);
   }
 
-  function convertAllOnlineToNight(shift) {
+  function convertAllOnlineToSecondary(shift) {
     const counts = computeCounts(shift);
     const targets = [];
     STATIONS.forEach((station) => CARRIERS.forEach((carrier) => {
       const qty = counts[station].online[carrier];
       if (qty > 0) targets.push({ station, carrier, qty });
     }));
-    if (!targets.length) throw new Error('目前沒有可轉完成的線上載具');
+    if (!targets.length) throw new Error('目前沒有可轉完成的二次分理載具');
     const operationId = uid('convert-all');
     const timestamp = nowIso();
     let total = 0;
     targets.forEach(({ station, carrier, qty }) => {
-      addEvent(shift, { station, category: 'online', carrier, delta: -qty, note: '全部線上轉夜班完成', timestamp, operationId });
-      addEvent(shift, { station, category: 'night', carrier, delta: qty, note: '全部線上轉夜班完成', timestamp, operationId });
+      addEvent(shift, { station, category: 'online', carrier, delta: -qty, note: '全部二次分理轉完成', timestamp, operationId });
+      addEvent(shift, { station, category: 'secondary', carrier, delta: qty, note: '全部二次分理轉完成', timestamp, operationId });
       total += qty;
     });
     return { stations: new Set(targets.map((item) => item.station)).size, quantity: total };
@@ -599,7 +602,7 @@
     const lines = [`${title}｜${shift.date}`];
     stations.forEach((station) => {
       const s = stats[station];
-      lines.push(`${station}：中${s.morning}／夜${s.night}／過${s.transit}｜總${s.reportTotal}（籠${cageStats[station].reportTotal}／板${palletStats[station].reportTotal}）`);
+      lines.push(`${station}：中${s.morning}／夜${s.night}／過${s.transit}／二${s.secondary}｜總${s.reportTotal}（籠${cageStats[station].reportTotal}／板${palletStats[station].reportTotal}）`);
     });
     const total = stations.reduce((sum, station) => sum + stats[station].reportTotal, 0);
     lines.push(`合計：${total}`);
@@ -634,7 +637,7 @@
     lines.push('', '站所統計：');
     STATIONS.forEach((station) => {
       const s = stats[station];
-      lines.push(`${station}｜中${s.morning}｜夜${s.night}｜過${s.transit}｜線${s.online}｜回報${s.reportTotal}（籠${cageStats[station].reportTotal}／板${palletStats[station].reportTotal}）｜載${s.loaded}｜應有${s.expected}｜現${s.actual}｜差${s.difference}`);
+      lines.push(`${station}｜中${s.morning}｜夜${s.night}｜過${s.transit}｜二${s.secondary}｜待轉${s.online}｜回報${s.reportTotal}（籠${cageStats[station].reportTotal}／板${palletStats[station].reportTotal}）｜載${s.loaded}｜應有${s.expected}｜現${s.actual}｜差${s.difference}`);
     });
     return lines.join('\n');
   }
@@ -645,7 +648,7 @@
     uid, nowIso, localDate, naturalStationSort, stationSeries, stationGroup, defaultCarrierForStation, otherCarrier, normalizeCarrier,
     createShift, migrateShift, emptyCounts, computeCounts, countFor, recomputeEventAfters,
     stationStats, computeAllStats, computeTotals, addEvent, setCount, chooseCarrierToDecrement,
-    convertOnlineToNight, addOnlineToStations, addOnlineToAllStations, convertAllOnlineToNight,
+    convertOnlineToSecondary, addOnlineToStations, addOnlineToAllStations, convertAllOnlineToSecondary,
     undoLastOperation, undoOperation, editEvent, deleteEvent,
     adjustReturnCount, computeReturnCounts, halfHourBucket, addReturnNote, deleteReturnNote, computeReturnBuckets, currentReturnBucket,
     csvEscape, makeShiftCSV, makeReturnBatchCSV, makeReportText, makeWorkLogText,

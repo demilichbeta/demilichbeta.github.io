@@ -112,7 +112,7 @@ button { touch-action: manipulation; }
   width: min(760px, 100%);
   height: calc(var(--nav-h) + env(safe-area-inset-bottom));
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   padding: 7px 6px calc(7px + env(safe-area-inset-bottom));
   background: rgba(10, 16, 29, .98);
   border-top: 1px solid var(--line);
@@ -1180,3 +1180,42 @@ button { touch-action: manipulation; }
 @media (min-width: 600px) {
   .default-count-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+
+/* v8：滑動時固定載具／回報切換 */
+.sticky-control-bar {
+  position: sticky;
+  top: calc(66px + env(safe-area-inset-top));
+  z-index: 18;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 9px 10px;
+  border: 1px solid #3a4a64;
+  border-radius: 14px;
+  background: rgba(13, 23, 40, .97);
+  box-shadow: 0 8px 22px rgba(0,0,0,.35);
+  backdrop-filter: blur(10px);
+}
+.sticky-control-bar > span { color: var(--muted); font-size: .78rem; }
+.sticky-control-bar > span b { color: #e0f2fe; }
+.sticky-control-bar .carrier-switch { margin: 0; }
+.report-mode-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.report-mode-switch button { min-height: 40px; min-width: 76px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); color: var(--muted); font-weight: 800; }
+.report-mode-switch button.active { background: var(--accent-2); color: white; border-color: var(--accent-2); }
+.secondary-completed-section { margin-top: 20px; }
+.secondary-completed-list { display: grid; gap: 7px; }
+.secondary-completed-list > div:not(.empty-state) { display: grid; grid-template-columns: 1fr 58px 100px; align-items: center; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+.secondary-completed-list strong { font-size: 1rem; }
+.secondary-completed-list span { color: #86efac; font-size: 1.25rem; font-weight: 900; text-align: center; }
+.secondary-completed-list small { color: var(--muted); text-align: right; }
+.report-row { grid-template-columns: minmax(50px,1fr) repeat(4, minmax(34px,.55fr)) minmax(72px,.9fr); }
+@media (max-width: 390px) {
+  .sticky-control-bar { top: calc(64px + env(safe-area-inset-top)); grid-template-columns: 1fr; }
+  .sticky-control-bar .carrier-switch, .report-mode-switch { width: 100%; }
+  .secondary-completed-list > div:not(.empty-state) { grid-template-columns: 1fr 48px 88px; }
+}
+.sticky-control-bar .report-mode-switch { margin-top: 0; }
+.report-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
