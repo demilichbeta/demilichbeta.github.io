@@ -1219,3 +1219,89 @@ button { touch-action: manipulation; }
 }
 .sticky-control-bar .report-mode-switch { margin-top: 0; }
 .report-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+
+/* v9：中班複製、回倉當前30分鐘批次、預設載具盤點 */
+.morning-copy-btn {
+  min-height: 52px;
+  margin-top: 10px;
+}
+
+.inventory-primary-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 104px;
+  gap: 8px;
+  align-items: end;
+}
+.inventory-other-row {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #3a4a64;
+}
+.inventory-carrier-input {
+  display: block;
+  color: var(--muted);
+  font-size: .72rem;
+  font-weight: 800;
+}
+.inventory-carrier-input > span { display: block; margin-bottom: 4px; }
+.inventory-carrier-input input {
+  width: 100%;
+  min-height: 56px;
+  border: 1px solid #3a4a64;
+  border-radius: 11px;
+  background: #09111f;
+  color: #7dd3fc;
+  font-size: 1.35rem;
+  font-weight: 900;
+  text-align: center;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.inventory-carrier-input input::-webkit-outer-spin-button,
+.inventory-carrier-input input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.inventory-expand-btn {
+  min-height: 56px;
+  padding: 7px;
+  border: 1px solid #35516a;
+  border-radius: 11px;
+  background: #18324a;
+  color: #bae6fd;
+  font-size: .78rem;
+  font-weight: 900;
+}
+.inventory-expand-btn.expanded {
+  border-color: #6b7280;
+  background: #263244;
+  color: #dbeafe;
+}
+.inventory-head span {
+  color: #dbeafe;
+  font-size: .82rem;
+}
+.inventory-card.difference-good .inventory-head span { color: #86efac; }
+.inventory-card.difference-bad .inventory-head span { color: #fca5a5; }
+.return-grand-total {
+  grid-template-columns: 1fr auto;
+  row-gap: 5px;
+}
+.return-grand-total span:nth-of-type(2) {
+  padding-top: 7px;
+  border-top: 1px solid var(--line);
+}
+.return-grand-total strong:nth-of-type(2) {
+  padding-top: 7px;
+  border-top: 1px solid var(--line);
+}
+.return-grand-total small { grid-column: 1 / -1; }
+
+@media (max-width: 360px) {
+  .inventory-primary-row { grid-template-columns: minmax(0, 1fr) 92px; }
+  .inventory-expand-btn { font-size: .7rem; }
+}
+.inventory-expand-btn:disabled {
+  opacity: 1;
+  border-color: rgba(245, 158, 11, .55);
+  background: rgba(120, 53, 15, .3);
+  color: #fde68a;
+}

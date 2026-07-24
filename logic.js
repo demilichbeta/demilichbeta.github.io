@@ -50,7 +50,7 @@
   };
   // 04:30 的『全部＋1』只套用 NS／TS。
   const ONLINE_BULK_STATIONS = [...SERIES_GROUPS.NS, ...SERIES_GROUPS.TS];
-  const RETURN_SOURCES = ['DC9', 'DC4', 'DC11', 'CS12', 'SDC', 'DC2', 'NS2', 'NS5', 'NS1', 'DC12'];
+  const RETURN_SOURCES = ['DC9', 'DC4', 'DC11', 'CS4', 'SDC', 'DC2', 'NS2', 'NS5', 'NS1', 'DC12'];
 
   const CARRIERS = ['cage', 'pallet'];
   const CARRIER_LABELS = { cage: '籠車', pallet: '棧板' };
@@ -121,7 +121,7 @@
       returnNotes: [],
       returnBatches: [],
       returnCounts: {},
-      schemaVersion: 8,
+      schemaVersion: 9,
     };
     if (previousMorning) {
       const operationId = uid('copy');
@@ -188,14 +188,17 @@
 
     shift.returnEvents = shift.returnEvents
       .filter((event) => event && event.source)
-      .map((event) => ({
-        id: event.id || uid('ret'),
-        timestamp: event.timestamp || migrationTimestamp(shift),
-        source: String(event.source).trim().toUpperCase(),
-        carrier: CARRIERS.includes(event.carrier) ? event.carrier : 'pallet',
-        delta: Math.max(0, Number(event.delta || 0)),
-        note: String(event.note || ''),
-      }))
+      .map((event) => {
+        const rawSource = String(event.source).trim().toUpperCase();
+        return {
+          id: event.id || uid('ret'),
+          timestamp: event.timestamp || migrationTimestamp(shift),
+          source: rawSource === 'CS12' ? 'CS4' : rawSource,
+          carrier: CARRIERS.includes(event.carrier) ? event.carrier : 'pallet',
+          delta: Math.max(0, Number(event.delta || 0)),
+          note: String(event.note || ''),
+        };
+      })
       .filter((event) => event.delta > 0);
 
     shift.returnNotes = shift.returnNotes
@@ -206,7 +209,7 @@
         text: String(item.text || '').trim(),
       }));
 
-    shift.schemaVersion = 8;
+    shift.schemaVersion = 9;
     recomputeEventAfters(shift);
     return shift;
   }
@@ -470,6 +473,66 @@
     return returnEventTotal(shift, cleanSource, normalizedCarrier);
   }
 
+
+  function returnBucketSourceCounts(shift, source, bucketKey, carrier = 'ALL') {
+    migrateShift(shift);
+    const cleanSource = String(source || '').trim().toUpperCase();
+    const counts = { cage: 0, pallet: 0, total: 0 };
+    shift.returnEvents.forEach((event) => {
+      if (event.source !== cleanSource || halfHourBucket(event.timestamp).key !== bucketKey) return;
+      counts[event.carrier] += Number(event.delta || 0);
+      counts.total += Number(event.delta || 0);
+    });
+    return carrier === 'ALL' ? counts.total : counts[carrier];
+  }
+
+  function adjustReturnBucketCount(shift, source, carrier, delta, timestamp = nowIso()) {
+    migrateShift(shift);
+    const cleanSource = String(source || '').trim().toUpperCase();
+    const normalizedCarrier = CARRIERS.includes(carrier) ? carrier : 'pallet';
+    const amount = Number(delta);
+    const bucket = halfHourBucket(timestamp);
+    if (!cleanSource) throw new Error('回倉來源無效');
+    if (!Number.isFinite(amount) || amount === 0) throw new Error('調整數量必須是非零數字');
+
+    if (amount > 0) {
+      shift.returnEvents.push({ id: uid('ret'), timestamp, source: cleanSource, carrier: normalizedCarrier, delta: amount, note: '' });
+    } else {
+      let remaining = Math.abs(amount);
+      const candidates = shift.returnEvents
+        .filter((event) => event.source === cleanSource && event.carrier === normalizedCarrier && event.delta > 0 && halfHourBucket(event.timestamp).key === bucket.key)
+        .sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)));
+      const available = candidates.reduce((sum, event) => sum + event.delta, 0);
+      if (available < remaining) throw new Error(`${cleanSource} ${CARRIER_LABELS[normalizedCarrier]}本時段數量已是 0`);
+      for (const event of candidates) {
+        if (remaining <= 0) break;
+        const used = Math.min(event.delta, remaining);
+        event.delta -= used;
+        remaining -= used;
+      }
+      shift.returnEvents = shift.returnEvents.filter((event) => event.delta > 0);
+    }
+    return returnBucketSourceCounts(shift, cleanSource, bucket.key, normalizedCarrier);
+  }
+
+  function computeCurrentReturnBucketCounts(shift, timestamp = nowIso()) {
+    migrateShift(shift);
+    const bucket = halfHourBucket(timestamp);
+    const bySource = {};
+    const sources = [...new Set([...RETURN_SOURCES, ...shift.returnEvents.map((event) => event.source)])];
+    sources.forEach((source) => {
+      const cage = returnBucketSourceCounts(shift, source, bucket.key, 'cage');
+      const pallet = returnBucketSourceCounts(shift, source, bucket.key, 'pallet');
+      bySource[source] = { cage, pallet, total: cage + pallet };
+    });
+    const carrierTotals = {
+      cage: Object.values(bySource).reduce((sum, value) => sum + value.cage, 0),
+      pallet: Object.values(bySource).reduce((sum, value) => sum + value.pallet, 0),
+    };
+    carrierTotals.total = carrierTotals.cage + carrierTotals.pallet;
+    return { bucket, bySource, carrierTotals };
+  }
+
   function computeReturnCounts(shift, carrier = 'ALL') {
     migrateShift(shift);
     const bySource = {};
@@ -592,6 +655,28 @@
     return '\ufeff' + rows.map((row) => row.map(csvEscape).join(',')).join('\n');
   }
 
+
+  function makeMorningReportText(shift) {
+    const counts = computeCounts(shift);
+    const lines = [`中班數量｜${shift.date}`];
+    GROUP_ORDER.forEach((group) => {
+      lines.push(`${group}：`);
+      STATION_GROUPS[group].forEach((station) => {
+        const cage = counts[station].morning.cage;
+        const pallet = counts[station].morning.pallet;
+        let detail = '0';
+        if (cage > 0 && pallet > 0) detail = `籠${cage}／板${pallet}`;
+        else if (cage > 0) detail = `籠${cage}`;
+        else if (pallet > 0) detail = `板${pallet}`;
+        lines.push(`${station}：${detail}`);
+      });
+    });
+    const cageTotal = STATIONS.reduce((sum, station) => sum + counts[station].morning.cage, 0);
+    const palletTotal = STATIONS.reduce((sum, station) => sum + counts[station].morning.pallet, 0);
+    lines.push(`合計：籠${cageTotal}／板${palletTotal}｜總${cageTotal + palletTotal}`);
+    return lines.join('\n');
+  }
+
   function makeReportText(shift, reportKey = 'THREE_AM') {
     const stations = REPORT_GROUPS[reportKey];
     if (!stations) throw new Error('未知回報類型');
@@ -650,7 +735,7 @@
     stationStats, computeAllStats, computeTotals, addEvent, setCount, chooseCarrierToDecrement,
     convertOnlineToSecondary, addOnlineToStations, addOnlineToAllStations, convertAllOnlineToSecondary,
     undoLastOperation, undoOperation, editEvent, deleteEvent,
-    adjustReturnCount, computeReturnCounts, halfHourBucket, addReturnNote, deleteReturnNote, computeReturnBuckets, currentReturnBucket,
-    csvEscape, makeShiftCSV, makeReturnBatchCSV, makeReportText, makeWorkLogText,
+    adjustReturnCount, adjustReturnBucketCount, returnBucketSourceCounts, computeCurrentReturnBucketCounts, computeReturnCounts, halfHourBucket, addReturnNote, deleteReturnNote, computeReturnBuckets, currentReturnBucket,
+    csvEscape, makeShiftCSV, makeReturnBatchCSV, makeMorningReportText, makeReportText, makeWorkLogText,
   };
 });
