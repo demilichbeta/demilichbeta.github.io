@@ -122,7 +122,7 @@
       actualConfirmed: {},
       returnBatches: [],
       returnCounts: {},
-      schemaVersion: 10,
+      schemaVersion: 11,
     };
     if (previousMorning) {
       const operationId = uid('copy');
@@ -211,7 +211,7 @@
         text: String(item.text || '').trim(),
       }));
 
-    shift.schemaVersion = 10;
+    shift.schemaVersion = 11;
     recomputeEventAfters(shift);
     return shift;
   }
@@ -715,34 +715,17 @@
     return confirmations || (Array.isArray(shift?.events) && shift.events.some((event) => event.station === station && event.category === 'actual'));
   }
 
+  // 複製快速回報前，直接採用「統計核對」的完整計算結果檢查指定回報範圍。
+  // 03:00：CS + S（SS／KS）；05:00：NS + TS + E（ET／HT／YT）。
+  // 籠車或棧板任一載具的差異不為 0，就視為該站存在數字差異異常。
   function findFastReportAnomalies(shift, reportKey = 'THREE_AM') {
     const stations = REPORT_GROUPS[reportKey];
     if (!stations) throw new Error('未知回報類型');
-    const counts = computeCounts(shift);
-    const cageStats = computeFastReportStats(shift, 'cage');
-    const palletStats = computeFastReportStats(shift, 'pallet');
-    const anomalies = [];
-
-    stations.forEach((station) => {
-      const reasons = [];
-      ['morning', 'night', 'transit', 'loaded', 'actual'].forEach((category) => {
-        CARRIERS.forEach((carrier) => {
-          const value = counts[station][category][carrier];
-          if (!Number.isFinite(value) || value < 0 || !Number.isInteger(value)) {
-            reasons.push(`${CATEGORY_LABELS[category]}${carrier === 'cage' ? '籠' : '板'}數值異常`);
-          }
-        });
-      });
-
-      // 有做過現場盤點時，才核對籠車與棧板；尚未盤點不視為異常，避免03:00全部誤報。
-      if (hasActualEntry(shift, station)) {
-        if (cageStats[station].difference !== 0) reasons.push(`籠應${cageStats[station].expected}／現${cageStats[station].actual}`);
-        if (palletStats[station].difference !== 0) reasons.push(`板應${palletStats[station].expected}／現${palletStats[station].actual}`);
-      }
-
-      if (reasons.length) anomalies.push({ station, reasons: [...new Set(reasons)] });
-    });
-    return anomalies;
+    const cageStats = computeAllStats(shift, 'cage');
+    const palletStats = computeAllStats(shift, 'pallet');
+    return stations
+      .filter((station) => cageStats[station].difference !== 0 || palletStats[station].difference !== 0)
+      .map((station) => ({ station }));
   }
 
   function makeReportText(shift, reportKey = 'THREE_AM') {

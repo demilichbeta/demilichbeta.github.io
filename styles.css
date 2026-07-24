@@ -1306,7 +1306,7 @@ button { touch-action: manipulation; }
   color: #fde68a;
 }
 
-/* v10：快速回報移除二分、複製前異常提示 */
+/* v11：快速回報依統計核對範圍顯示通用異常警告 */
 .report-row {
   grid-template-columns: minmax(50px, 1fr) repeat(3, minmax(34px, .55fr)) minmax(78px, .95fr);
 }
