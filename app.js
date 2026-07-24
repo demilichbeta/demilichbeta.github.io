@@ -31,7 +31,7 @@
 
   function defaultState() {
     return {
-      version: 9,
+      version: 10,
       currentShiftId: null,
       shifts: [],
       activeView: 'night',
@@ -47,7 +47,7 @@
   function migrateAppState(rawState) {
     const base = defaultState();
     const migrated = rawState && typeof rawState === 'object' ? rawState : base;
-    migrated.version = 9;
+    migrated.version = 10;
     migrated.shifts = Array.isArray(migrated.shifts) ? migrated.shifts : [];
     migrated.shifts.forEach((shift) => L.migrateShift(shift));
     migrated.ui = { ...base.ui, ...(migrated.ui || {}) };
@@ -472,12 +472,11 @@
         input.value = String(value);
         const shift = currentShift();
         const event = L.setCount(shift, input.dataset.station, 'actual', value, input.dataset.carrier);
-        if (event) {
-          await saveState();
-          updateHeader();
-          updateInventoryRowStatus(input.dataset.station);
-          showToast(`${input.dataset.station} ${carrierShort(input.dataset.carrier)}已保存`);
-        }
+        L.confirmActualEntry(shift, input.dataset.station, input.dataset.carrier);
+        await saveState();
+        updateHeader();
+        updateInventoryRowStatus(input.dataset.station);
+        if (event) showToast(`${input.dataset.station} ${carrierShort(input.dataset.carrier)}已保存`);
       });
     });
   }
@@ -521,24 +520,45 @@
     showToast(successMessage);
   }
 
+  function reportWarningHtml(anomalies, time) {
+    const stationText = anomalies.map((item) => item.station).join('、');
+    return `<section class="report-warning" role="alert"><div class="report-warning-head"><strong>${time}回報偵測到數字異常</strong><button id="closeReportWarningBtn" type="button" aria-label="關閉提示">×</button></div><p>請先確認：${stationText}</p><div class="report-warning-list">${anomalies.map((item) => `<div><b>${item.station}</b><span>${item.reasons.join('、')}</span></div>`).join('')}</div><button id="forceCopyReportBtn" class="warning-copy-btn" type="button">仍要複製回報文字</button></section>`;
+  }
+
   function renderReports() {
     const shift = requireShift(); if (!shift) return;
     const reportKey = state.ui.reportMode;
     const isThree = reportKey === 'THREE_AM';
     const stations = L.REPORT_GROUPS[reportKey];
-    const stats = L.computeAllStats(shift, 'ALL'); const cage = L.computeAllStats(shift, 'cage'); const pallet = L.computeAllStats(shift, 'pallet');
-    const totals = L.computeTotals(shift, 'ALL');
+    const stats = L.computeFastReportStats(shift, 'ALL');
+    const cage = L.computeFastReportStats(shift, 'cage');
+    const pallet = L.computeFastReportStats(shift, 'pallet');
     const time = isThree ? '03:00' : '05:00';
     const scope = isThree ? 'CS／SS／KS' : 'NS／TS／E';
-    const totalKey = isThree ? 'REPORT03' : 'REPORT05';
+    const total = stations.reduce((sum, station) => sum + stats[station].reportTotal, 0);
     main.innerHTML = `
       <div class="sticky-control-bar report-switch-bar"><span>派車快速回報</span><div class="report-mode-switch"><button class="${isThree ? 'active' : ''}" data-report-mode="THREE_AM">03:00</button><button class="${!isThree ? 'active' : ''}" data-report-mode="FIVE_AM">05:00</button></div></div>
-      <section class="card"><strong>${time} 派車快速回報</strong><p class="small-note">${scope}；總數包含已轉完成的二次分理，未轉完成的待處理數不計入。</p></section>
-      <div class="report-summary"><div class="total-card"><span>${time}合計</span><strong>${totals[totalKey].reportTotal}</strong></div><div class="total-card"><span>${scope}</span><strong>${stations.length}站</strong></div></div>
+      <section class="card"><strong>${time} 派車快速回報</strong><p class="small-note">${scope}；回報只包含中班、夜班與過境，二次分理不列入。</p></section>
+      <div class="report-summary"><div class="total-card"><span>${time}合計</span><strong>${total}</strong></div><div class="total-card"><span>${scope}</span><strong>${stations.length}站</strong></div></div>
       <button id="copyReportBtn" class="primary-btn full-width report-copy-btn">複製${time}回報文字</button>
-      <div class="report-list">${stations.map((station) => { const st = stats[station]; return `<div class="report-row"><strong>${station}</strong><span><small>中</small>${st.morning}</span><span><small>夜</small>${st.night}</span><span><small>過</small>${st.transit}</span><span><small>二</small>${st.secondary}</span><span class="report-total"><small>總</small>${st.reportTotal}<em>籠${cage[station].reportTotal}／板${pallet[station].reportTotal}</em></span></div>`; }).join('')}</div>`;
+      <div id="reportWarningHost"></div>
+      <div class="report-list">${stations.map((station) => { const st = stats[station]; return `<div class="report-row"><strong>${station}</strong><span><small>中</small>${st.morning}</span><span><small>夜</small>${st.night}</span><span><small>過</small>${st.transit}</span><span class="report-total"><small>總</small>${st.reportTotal}<em>籠${cage[station].reportTotal}／板${pallet[station].reportTotal}</em></span></div>`; }).join('')}</div>`;
     main.querySelectorAll('[data-report-mode]').forEach((button) => button.addEventListener('click', async () => { state.ui.reportMode = button.dataset.reportMode; await saveState(); renderReports(); }));
-    el('copyReportBtn').addEventListener('click', () => copyText(L.makeReportText(shift, reportKey), `${time}回報已複製`));
+    el('copyReportBtn').addEventListener('click', async () => {
+      const anomalies = L.findFastReportAnomalies(shift, reportKey);
+      const host = el('reportWarningHost');
+      if (!anomalies.length) {
+        host.innerHTML = '';
+        await copyText(L.makeReportText(shift, reportKey), `${time}回報已複製`);
+        return;
+      }
+      host.innerHTML = reportWarningHtml(anomalies, time);
+      el('closeReportWarningBtn').addEventListener('click', () => { host.innerHTML = ''; });
+      el('forceCopyReportBtn').addEventListener('click', async () => {
+        await copyText(L.makeReportText(shift, reportKey), `${time}回報已複製（含異常提醒）`);
+      });
+      host.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
   }
 
   function scheduleReturnBucketRefresh() {
@@ -640,7 +660,7 @@
   function downloadFile(filename, content, type) { const blob = new Blob([content], { type }); const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = filename; document.body.appendChild(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(url), 1200); }
   function exportCurrentCSV() { const shift = currentShift(); if (!shift) return showToast('尚無班次'); downloadFile(`點貨事件_${shift.date}.csv`, L.makeShiftCSV(shift), 'text/csv;charset=utf-8'); showToast('CSV已匯出'); }
   function exportReturnCSV() { const shift = currentShift(); if (!shift) return showToast('尚無班次'); downloadFile(`回倉紀錄_${shift.date}.csv`, L.makeReturnBatchCSV(shift), 'text/csv;charset=utf-8'); showToast('回倉CSV已匯出'); }
-  function exportAllJSON() { const payload = { app: '物流夜班點貨', schemaVersion: 9, exportedAt: new Date().toISOString(), state }; downloadFile(`夜班點貨_完整備份_${L.localDate()}.json`, JSON.stringify(payload, null, 2), 'application/json'); showToast('JSON備份已匯出'); }
+  function exportAllJSON() { const payload = { app: '物流夜班點貨', schemaVersion: 10, exportedAt: new Date().toISOString(), state }; downloadFile(`夜班點貨_完整備份_${L.localDate()}.json`, JSON.stringify(payload, null, 2), 'application/json'); showToast('JSON備份已匯出'); }
 
   async function importJSON(event) {
     const file = event.target.files?.[0]; if (!file) return;

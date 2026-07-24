@@ -1,12 +1,16 @@
-物流夜班點貨 PWA v9 自動測試結果
-執行日期：2026-07-24
+物流夜班點貨 PWA v10 自動測試結果
+測試日期：2026-07-24
 
-PASS: v9 回倉來源、30分鐘面板歸零、歷史保留、中班複製文字與籠板精確盤點邏輯通過。
-PASS: v9 版本、介面字串、盤點互動、回倉批次與離線快取靜態檢查通過。
-PASS: logic.js JavaScript 語法檢查通過。
-PASS: app.js JavaScript 語法檢查通過。
-PASS: manifest.json JSON 格式通過。
-PASS: Service Worker 快取版本與必要檔案清單通過。
-PASS: HTTP 靜態檔案 index、CSS、JS、manifest、Service Worker與圖示皆可正常讀取。
+PASS：JavaScript 語法檢查（logic.js、app.js）。
+PASS：中班複製格式改為 X籠／X板，合計格式正確。
+PASS：03:00／05:00快速回報總數排除二次分理。
+PASS：快速回報畫面與複製文字不含二分欄位。
+PASS：尚未盤點的站所不會被全部誤判異常。
+PASS：籠車或棧板盤點不符時可列出異常站所與應有／現場數量。
+PASS：明確輸入0的盤點值可保存確認狀態並參與異常檢查。
+PASS：異常提示介面包含關閉與「仍要複製」功能，切換頁面時由畫面重建自動清除。
+PASS：v9回倉30分鐘批次、來源遷移及歷史保留邏輯未受影響。
+PASS：manifest、必要PWA檔案、圖示與Service Worker快取清單完整。
+PASS：最終ZIP解壓後可重新通過全部Node測試。
 
-限制：Android 實機的鍵盤、觸控、30分鐘跨時段自動更新與已安裝PWA更新，仍需依 TEST_CHECKLIST.md 實機確認。
+待Android實機確認：提示框尺寸、捲動位置、剪貼簿權限與觸控手感。

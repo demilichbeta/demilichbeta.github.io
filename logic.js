@@ -119,9 +119,10 @@
       events: [],
       returnEvents: [],
       returnNotes: [],
+      actualConfirmed: {},
       returnBatches: [],
       returnCounts: {},
-      schemaVersion: 9,
+      schemaVersion: 10,
     };
     if (previousMorning) {
       const operationId = uid('copy');
@@ -154,6 +155,7 @@
     if (!Array.isArray(shift.returnBatches)) shift.returnBatches = [];
     if (!Array.isArray(shift.returnEvents)) shift.returnEvents = [];
     if (!Array.isArray(shift.returnNotes)) shift.returnNotes = [];
+    if (!shift.actualConfirmed || typeof shift.actualConfirmed !== 'object' || Array.isArray(shift.actualConfirmed)) shift.actualConfirmed = {};
 
     shift.events.forEach((event) => {
       event.carrier = normalizeCarrier(event.carrier, event.station);
@@ -209,7 +211,7 @@
         text: String(item.text || '').trim(),
       }));
 
-    shift.schemaVersion = 9;
+    shift.schemaVersion = 10;
     recomputeEventAfters(shift);
     return shift;
   }
@@ -665,29 +667,95 @@
         const cage = counts[station].morning.cage;
         const pallet = counts[station].morning.pallet;
         let detail = '0';
-        if (cage > 0 && pallet > 0) detail = `籠${cage}／板${pallet}`;
-        else if (cage > 0) detail = `籠${cage}`;
-        else if (pallet > 0) detail = `板${pallet}`;
+        if (cage > 0 && pallet > 0) detail = `${cage}籠／${pallet}板`;
+        else if (cage > 0) detail = `${cage}籠`;
+        else if (pallet > 0) detail = `${pallet}板`;
         lines.push(`${station}：${detail}`);
       });
     });
     const cageTotal = STATIONS.reduce((sum, station) => sum + counts[station].morning.cage, 0);
     const palletTotal = STATIONS.reduce((sum, station) => sum + counts[station].morning.pallet, 0);
-    lines.push(`合計：籠${cageTotal}／板${palletTotal}｜總${cageTotal + palletTotal}`);
+    lines.push(`合計：${cageTotal}籠／${palletTotal}板｜總${cageTotal + palletTotal}`);
     return lines.join('\n');
+  }
+
+  // 派車快速回報只計中班、夜班、過境；二次分理為05:00後工作，不列入03:00／05:00回報。
+  function fastReportStationStats(shift, station, carrier = 'ALL') {
+    if (!STATIONS.includes(station)) throw new Error('未知站所');
+    const counts = computeCounts(shift)[station];
+    const read = (category) => carrier === 'ALL'
+      ? CARRIERS.reduce((sum, item) => sum + Number(counts[category][item] || 0), 0)
+      : Number(counts[category][normalizeCarrier(carrier, station)] || 0);
+    const morning = read('morning');
+    const night = read('night');
+    const transit = read('transit');
+    const loaded = read('loaded');
+    const actual = read('actual');
+    const reportTotal = morning + night + transit;
+    const expected = reportTotal - loaded;
+    return { morning, night, transit, loaded, actual, reportTotal, expected, difference: actual - expected };
+  }
+
+  function computeFastReportStats(shift, carrier = 'ALL') {
+    return Object.fromEntries(STATIONS.map((station) => [station, fastReportStationStats(shift, station, carrier)]));
+  }
+
+  function confirmActualEntry(shift, station, carrier, timestamp = nowIso()) {
+    if (!STATIONS.includes(station)) throw new Error('未知站所');
+    const normalizedCarrier = normalizeCarrier(carrier, station);
+    if (!shift.actualConfirmed || typeof shift.actualConfirmed !== 'object') shift.actualConfirmed = {};
+    shift.actualConfirmed[`${station}:${normalizedCarrier}`] = timestamp;
+    return shift.actualConfirmed[`${station}:${normalizedCarrier}`];
+  }
+
+  function hasActualEntry(shift, station) {
+    const confirmations = shift?.actualConfirmed && typeof shift.actualConfirmed === 'object'
+      ? Object.keys(shift.actualConfirmed).some((key) => key.startsWith(`${station}:`))
+      : false;
+    return confirmations || (Array.isArray(shift?.events) && shift.events.some((event) => event.station === station && event.category === 'actual'));
+  }
+
+  function findFastReportAnomalies(shift, reportKey = 'THREE_AM') {
+    const stations = REPORT_GROUPS[reportKey];
+    if (!stations) throw new Error('未知回報類型');
+    const counts = computeCounts(shift);
+    const cageStats = computeFastReportStats(shift, 'cage');
+    const palletStats = computeFastReportStats(shift, 'pallet');
+    const anomalies = [];
+
+    stations.forEach((station) => {
+      const reasons = [];
+      ['morning', 'night', 'transit', 'loaded', 'actual'].forEach((category) => {
+        CARRIERS.forEach((carrier) => {
+          const value = counts[station][category][carrier];
+          if (!Number.isFinite(value) || value < 0 || !Number.isInteger(value)) {
+            reasons.push(`${CATEGORY_LABELS[category]}${carrier === 'cage' ? '籠' : '板'}數值異常`);
+          }
+        });
+      });
+
+      // 有做過現場盤點時，才核對籠車與棧板；尚未盤點不視為異常，避免03:00全部誤報。
+      if (hasActualEntry(shift, station)) {
+        if (cageStats[station].difference !== 0) reasons.push(`籠應${cageStats[station].expected}／現${cageStats[station].actual}`);
+        if (palletStats[station].difference !== 0) reasons.push(`板應${palletStats[station].expected}／現${palletStats[station].actual}`);
+      }
+
+      if (reasons.length) anomalies.push({ station, reasons: [...new Set(reasons)] });
+    });
+    return anomalies;
   }
 
   function makeReportText(shift, reportKey = 'THREE_AM') {
     const stations = REPORT_GROUPS[reportKey];
     if (!stations) throw new Error('未知回報類型');
-    const stats = computeAllStats(shift, 'ALL');
-    const cageStats = computeAllStats(shift, 'cage');
-    const palletStats = computeAllStats(shift, 'pallet');
+    const stats = computeFastReportStats(shift, 'ALL');
+    const cageStats = computeFastReportStats(shift, 'cage');
+    const palletStats = computeFastReportStats(shift, 'pallet');
     const title = reportKey === 'THREE_AM' ? '03:00 CS／SS／KS 回報' : '05:00 NS／TS／E 回報';
     const lines = [`${title}｜${shift.date}`];
     stations.forEach((station) => {
       const s = stats[station];
-      lines.push(`${station}：中${s.morning}／夜${s.night}／過${s.transit}／二${s.secondary}｜總${s.reportTotal}（籠${cageStats[station].reportTotal}／板${palletStats[station].reportTotal}）`);
+      lines.push(`${station}：中${s.morning}／夜${s.night}／過${s.transit}｜總${s.reportTotal}（籠${cageStats[station].reportTotal}／板${palletStats[station].reportTotal}）`);
     });
     const total = stations.reduce((sum, station) => sum + stats[station].reportTotal, 0);
     lines.push(`合計：${total}`);
@@ -736,6 +804,6 @@
     convertOnlineToSecondary, addOnlineToStations, addOnlineToAllStations, convertAllOnlineToSecondary,
     undoLastOperation, undoOperation, editEvent, deleteEvent,
     adjustReturnCount, adjustReturnBucketCount, returnBucketSourceCounts, computeCurrentReturnBucketCounts, computeReturnCounts, halfHourBucket, addReturnNote, deleteReturnNote, computeReturnBuckets, currentReturnBucket,
-    csvEscape, makeShiftCSV, makeReturnBatchCSV, makeMorningReportText, makeReportText, makeWorkLogText,
+    csvEscape, makeShiftCSV, makeReturnBatchCSV, makeMorningReportText, fastReportStationStats, computeFastReportStats, confirmActualEntry, findFastReportAnomalies, makeReportText, makeWorkLogText,
   };
 });
