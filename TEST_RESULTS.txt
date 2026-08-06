@@ -1,0 +1,11 @@
+物流夜班點貨 PWA 0.041 自動測試結果
+
+PASS：以0.039為功能基底。
+PASS：makeReportText與0.033原始碼逐字一致。
+PASS：恢復全形表頭、英數字、空格與動態欄寬。
+PASS：快速回報App畫面仍使用小寫t。
+PASS：核心資產使用0.041實體檔名。
+PASS：App與Logic具備版本一致性檢查。
+PASS：過境貨複製與回倉合計保留。
+PASS：資料結構仍為第14版。
+PASS：JavaScript語法、計算測試、專案測試及ZIP解壓重測全部通過。
