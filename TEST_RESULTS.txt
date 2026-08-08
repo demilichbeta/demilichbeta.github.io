@@ -1,13 +1,16 @@
-物流夜班點貨 PWA 0.042 自動測試結果
+物流夜班點貨 PWA 0.043 自動測試結果
 
-PASS：以0.041為唯一開發基底。
-PASS：核心資產使用0.042實體檔名，Service Worker快取同步升版。
+PASS：以0.042為唯一開發基底。
+PASS：核心資產使用0.043實體檔名，Service Worker快取同步升版。
 PASS：App與Logic版本一致性檢查正常。
 PASS：JavaScript語法檢查通過。
 PASS：既有Logic自動測試全部通過。
-PASS：0.033快速回報makeReportText與0.033原始碼逐字一致。
+PASS：0.033快速回報makeReportText與0.033原始碼逐字一致（1336字元；SHA-256 946fe1a657db6e200fc01b2d9ff824aca642c112675bbd75841388a8a6698fb1）。
 PASS：過境貨複製、回倉合計及既有重要功能專案檢查通過。
-PASS：夜班「修正數量／非預設」雙按鈕結構檢查通過。
-PASS：第7～12滑道快速定位結構與sticky樣式檢查通過。
-PASS：滑道區塊scroll-margin定位保護檢查通過。
+PASS：0.042夜班「修正數量／非預設」雙按鈕結構保留。
+PASS：0.042第7～12滑道快速定位、sticky與scroll-margin結構保留。
+PASS：0.043新增目前滑道is-current微亮狀態。
+PASS：目前滑道會依實際scroll位置更新，並在按定位鍵時立即更新。
+PASS：一般＋1模式與修正數量模式共用相同滑道位置追蹤。
+PASS：目前滑道微亮採低飽和藍灰色，符合既有深色語意色盤。
 PASS：資料結構仍為Schema 14。
