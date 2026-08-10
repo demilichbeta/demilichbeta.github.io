@@ -1,16 +1,18 @@
-物流夜班點貨 PWA 0.047 自動測試結果
+物流夜班點貨 PWA 0.049 自動測試結果
 
-PASS：app-0.047.js 與 logic-0.047.js JavaScript 語法檢查通過。
-PASS：既有 Logic 自動測試通過。
-PASS：專案版本／Service Worker／Manifest／HTML 資產一致性測試通過。
-PASS：Schema 已由 14 升至 15。
-PASS：「00前已載走」使用獨立 preMidnightLoaded 資料結構，不混入中班或一般提前載走事件。
-PASS：預設常用站所為 NS6、TS3、HT1、YT1、ET3。
-PASS：00前已載走可記籠／板、臨時新增其他站所、完成／修改盤點。
-PASS：舊版 00前轉出總籠數可安全遷移為「舊版未分站」籠數，重複 migrate 不會重複累加。
-PASS：中班數量頁已移除舊 00前轉出輸入與顯示。
-PASS：統計核對「中＋夜」籠／板總量會加回 00前已載走。
-PASS：00前已載走不會加入站所現場應有數，也不會加入03:00／05:00快速回報。
-PASS：0.047 makeReportText 與 0.046 完全一致；05:00 排除 NS6／TS1／TS3 的既有規則維持。
-PASS：NS15／NT20 滑道調整與 NT24 新增完整保留。
-PASS：ZIP 封裝前專案測試全部通過。
+PASS：以 0.047 為基底；0.048 的現場應有數「最低為0」修正未納入。
+PASS：app-0.049.js、logic-0.049.js、service-worker-0.049.js JavaScript 語法檢查通過。
+PASS：CSS 由 tinycss2 完整解析，無 stylesheet parse error。
+PASS：HTML／Manifest／Service Worker／版本化資產引用一致，核心檔案無缺漏。
+PASS：既有 Logic 自動測試與專案非退版測試全部通過。
+PASS：Schema 維持 15；本版二次分理只新增暫時 UI 展開狀態，不改事件資料結構。
+PASS：二次分理預設只顯示待處理數量 > 0 的站所；0 數量站需由「全部／7／8／9／10／11／12」臨時叫出。
+PASS：滑道選站使用精簡卡片（站名／預設載具／＋1）；＋1 後站所進入待處理區固定顯示。
+PASS：待處理歸0或轉完成後不再固定顯示；轉完成資料仍累加至 secondary，下方已轉完成紀錄邏輯不變。
+PASS：「全部轉完成」與個別「轉完成」核心函式與 0.047 完全一致。
+PASS：非預設載具仍為一次性模式，下一筆＋1後自動關閉。
+PASS：離開二次分理頁時滑道展開狀態會重設，待處理事件資料不受影響。
+PASS：一般提前載走若大於回報基數，現場應有數仍可呈現負值（例如 2−5＝−3），不隱藏資料異常。
+PASS：「00前已載走」獨立 preMidnightLoaded、最終籠／板總量、中班移除00前轉出等 0.047 功能完整保留。
+PASS：05:00 複製排除 NS6／TS1／TS3、NS15／NT20 滑道調整與 NT24 新增完整保留。
+PASS：0.049 makeReportText 與 0.047 完全一致，未碰快速回報複製邏輯。
