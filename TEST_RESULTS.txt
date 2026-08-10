@@ -1,12 +1,14 @@
-物流夜班點貨 PWA 0.045 自動測試結果
+物流夜班點貨 PWA 0.046 自動測試結果
 
-PASS：app-0.045.js 與 logic-0.045.js JavaScript 語法檢查通過。
-PASS：test-logic.js 全部通過；既有站所、載具、統計與快速回報計算未退版。
-PASS：test-project.js 全部通過；0.042～0.044 已鎖定功能保留。
-PASS：二次分理畫面已移除「全部 +1」入口與事件綁定。
-PASS：「全部轉完成」與「非預設」合併為單排。
-PASS：二次分理大型說明卡改為薄型操作提示。
-PASS：0 數量站所的「無待處理」改為低對比狀態；有待處理時「轉完成」維持可操作強調。
-PASS：Logic 與 0.044 除 VERSION 字串外完全一致，未修改核心計數邏輯。
-PASS：Schema 14 不變。
-PASS：Service Worker、Manifest、HTML 與核心資產均使用 0.045 實體檔名。
+PASS：app-0.046.js 與 logic-0.046.js JavaScript 語法檢查通過。
+PASS：既有 Logic 自動測試通過。
+PASS：專案版本／Service Worker／Manifest／HTML 資產一致性測試通過。
+PASS：05:00 快速回報 UI／REPORT_GROUPS 仍包含 NS6、TS1、TS3。
+PASS：05:00 複製文字精確排除 NS6、TS1、TS3；TS11 不受 TS1 排除規則影響。
+PASS：05:00 複製文字包含新增 NT24，既有全形固定欄寬格式保留。
+PASS：03:00 複製文字與 0.045 逐字一致。
+PASS：NS15 已移至第八滑道。
+PASS：NT20 已移至第九滑道。
+PASS：NT24 已加入第十滑道，排列於 NT23 後，歸 N 系列。
+PASS：NT24 預設載具為棧板。
+PASS：Schema 維持 14。
