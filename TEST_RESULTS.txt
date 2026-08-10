@@ -1,14 +1,16 @@
-物流夜班點貨 PWA 0.046 自動測試結果
+物流夜班點貨 PWA 0.047 自動測試結果
 
-PASS：app-0.046.js 與 logic-0.046.js JavaScript 語法檢查通過。
+PASS：app-0.047.js 與 logic-0.047.js JavaScript 語法檢查通過。
 PASS：既有 Logic 自動測試通過。
 PASS：專案版本／Service Worker／Manifest／HTML 資產一致性測試通過。
-PASS：05:00 快速回報 UI／REPORT_GROUPS 仍包含 NS6、TS1、TS3。
-PASS：05:00 複製文字精確排除 NS6、TS1、TS3；TS11 不受 TS1 排除規則影響。
-PASS：05:00 複製文字包含新增 NT24，既有全形固定欄寬格式保留。
-PASS：03:00 複製文字與 0.045 逐字一致。
-PASS：NS15 已移至第八滑道。
-PASS：NT20 已移至第九滑道。
-PASS：NT24 已加入第十滑道，排列於 NT23 後，歸 N 系列。
-PASS：NT24 預設載具為棧板。
-PASS：Schema 維持 14。
+PASS：Schema 已由 14 升至 15。
+PASS：「00前已載走」使用獨立 preMidnightLoaded 資料結構，不混入中班或一般提前載走事件。
+PASS：預設常用站所為 NS6、TS3、HT1、YT1、ET3。
+PASS：00前已載走可記籠／板、臨時新增其他站所、完成／修改盤點。
+PASS：舊版 00前轉出總籠數可安全遷移為「舊版未分站」籠數，重複 migrate 不會重複累加。
+PASS：中班數量頁已移除舊 00前轉出輸入與顯示。
+PASS：統計核對「中＋夜」籠／板總量會加回 00前已載走。
+PASS：00前已載走不會加入站所現場應有數，也不會加入03:00／05:00快速回報。
+PASS：0.047 makeReportText 與 0.046 完全一致；05:00 排除 NS6／TS1／TS3 的既有規則維持。
+PASS：NS15／NT20 滑道調整與 NT24 新增完整保留。
+PASS：ZIP 封裝前專案測試全部通過。
