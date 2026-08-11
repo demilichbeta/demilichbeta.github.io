@@ -1,7 +1,10 @@
-物流夜班點貨 PWA 0.049 自動測試結果
+物流夜班點貨 PWA 0.050 自動測試結果
 
+PASS：現場盤點站所卡新增夜班籠／板來源，資訊改為「中／夜、過／總」2×2，卡片不增加第三行。
+PASS：0.050 只改顯示層與版本資產；computeAllStats、現場應有、差異與資料 Schema 均未重構。
+PASS：logic-0.050.js 與0.049除版本號外完全一致，快速回報與所有計算函式未改動。
 PASS：以 0.047 為基底；0.048 的現場應有數「最低為0」修正未納入。
-PASS：app-0.049.js、logic-0.049.js、service-worker-0.049.js JavaScript 語法檢查通過。
+PASS：app-0.050.js、logic-0.050.js、service-worker-0.050.js JavaScript 語法檢查通過。
 PASS：CSS 由 tinycss2 完整解析，無 stylesheet parse error。
 PASS：HTML／Manifest／Service Worker／版本化資產引用一致，核心檔案無缺漏。
 PASS：既有 Logic 自動測試與專案非退版測試全部通過。
@@ -15,4 +18,4 @@ PASS：離開二次分理頁時滑道展開狀態會重設，待處理事件資�
 PASS：一般提前載走若大於回報基數，現場應有數仍可呈現負值（例如 2−5＝−3），不隱藏資料異常。
 PASS：「00前已載走」獨立 preMidnightLoaded、最終籠／板總量、中班移除00前轉出等 0.047 功能完整保留。
 PASS：05:00 複製排除 NS6／TS1／TS3、NS15／NT20 滑道調整與 NT24 新增完整保留。
-PASS：0.049 makeReportText 與 0.047 完全一致，未碰快速回報複製邏輯。
+PASS：0.050 makeReportText 與 0.047 完全一致，未碰快速回報複製邏輯。
