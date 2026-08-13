@@ -1,16 +1,19 @@
-物流夜班點貨 PWA 0.051 自動測試結果
+物流夜班點貨 PWA 0.052 自動測試結果
 
-PASS：Schema由15升至16，只新增 specialInventory.confirmations；特殊盤點不保存第二份正式數量。
-PASS：特殊盤點中班／夜班／過境／現場確認會以同一operationId差額事件寫回原events。
-PASS：一般提前載走loaded不會被特殊盤點重設；00前已載走preMidnightLoaded不會被特殊盤點改動。
-PASS：NS2範例：中5＋夜5＋過3－一般提前載走10＝現場應有3；特殊盤點現場3後差異為0。
-PASS：特殊盤點確認籠／板即使為0也會保留actualConfirmed。
-PASS：確認簽章涵蓋morning／night／transit／loaded／online／secondary／actual；正常流程後續修改會使已確認自動失效。
-PASS：特殊盤點UI有預設／非預設載具頁籤、中／夜／過／現四欄、來源／載走／應有／差異預覽、未確認與有差異篩選。
-PASS：app-0.051.js、logic-0.051.js、service-worker-0.051.js JavaScript語法檢查通過。
-PASS：CSS由tinycss2完整解析，無stylesheet parse error。
+PASS：Schema維持16；0.052沒有建立新的盤點數量結構，正式數量仍唯一來自events。
+PASS：二次分理online +1立即加入現場expected；03:00／05:00快速回報仍使用fastReportStationStats，不含online／secondary。
+PASS：二次分理單站轉完成會以同一operation將online移到secondary，並將同站同載具actual增加相同數量。
+PASS：二次分理「全部轉完成」同樣依每站、每載具同步actual；籠／板不混算。
+PASS：範例「原應有5／實盤5 → 二分+2後應有7／實盤5 → 轉完成後應有7／實盤7」通過。
+PASS：轉完成會更新該站該載具的actualConfirmed；中班／夜班／過境來源數不被修改。
+PASS：特殊盤點預覽已把二分待轉online與完成secondary都反映在應有來源，仍不會重設二分資料。
+PASS：過境貨與回倉目前時段新增低亮度soft-touch視覺回饋；夜班既有高亮回饋未修改。
+PASS：其他功能順序已改為中班數量→回倉紀錄→過境貨→提前載走→二次分理→特殊盤點→事件紀錄→班次／備份。
+PASS：特殊盤點UI改用既有panel／line／semantic低亮度語意色；高權限資料結構與確認邏輯不變。
+PASS：app-0.052.js、logic-0.052.js、service-worker-0.052.js JavaScript語法檢查通過。
+PASS：styles-0.052.css由tinycss2完整解析，無stylesheet parse error。
 PASS：HTML／Manifest／Service Worker／版本化資產引用一致。
 PASS：既有Logic自動測試與專案非退版測試全部通過。
-PASS：0.048負數截斷未混入；stationStats仍為 expected = reportTotal - loaded。
-PASS：0.050現場盤點2×2、0.049二次分理、0.047 00前已載走、0.046 05:00排除／Nt24均保留。
-PASS：makeReportText、makeTransitReportText、stationStats、computeStatsOverview與0.050函式內容一致。
+PASS：0.048負數截斷未混入；一般提前載走仍可使expected為負值。
+PASS：makeReportText、makeTransitReportText、fastReportStationStats與0.051逐字一致。
+PASS：0.051特殊盤點、0.050現場2×2、0.049二分滑道、0.047 00前已載走、0.046 05:00排除／Nt24均保留。
