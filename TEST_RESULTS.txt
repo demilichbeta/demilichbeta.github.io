@@ -1,21 +1,16 @@
-物流夜班點貨 PWA 0.050 自動測試結果
+物流夜班點貨 PWA 0.051 自動測試結果
 
-PASS：現場盤點站所卡新增夜班籠／板來源，資訊改為「中／夜、過／總」2×2，卡片不增加第三行。
-PASS：0.050 只改顯示層與版本資產；computeAllStats、現場應有、差異與資料 Schema 均未重構。
-PASS：logic-0.050.js 與0.049除版本號外完全一致，快速回報與所有計算函式未改動。
-PASS：以 0.047 為基底；0.048 的現場應有數「最低為0」修正未納入。
-PASS：app-0.050.js、logic-0.050.js、service-worker-0.050.js JavaScript 語法檢查通過。
-PASS：CSS 由 tinycss2 完整解析，無 stylesheet parse error。
-PASS：HTML／Manifest／Service Worker／版本化資產引用一致，核心檔案無缺漏。
-PASS：既有 Logic 自動測試與專案非退版測試全部通過。
-PASS：Schema 維持 15；本版二次分理只新增暫時 UI 展開狀態，不改事件資料結構。
-PASS：二次分理預設只顯示待處理數量 > 0 的站所；0 數量站需由「全部／7／8／9／10／11／12」臨時叫出。
-PASS：滑道選站使用精簡卡片（站名／預設載具／＋1）；＋1 後站所進入待處理區固定顯示。
-PASS：待處理歸0或轉完成後不再固定顯示；轉完成資料仍累加至 secondary，下方已轉完成紀錄邏輯不變。
-PASS：「全部轉完成」與個別「轉完成」核心函式與 0.047 完全一致。
-PASS：非預設載具仍為一次性模式，下一筆＋1後自動關閉。
-PASS：離開二次分理頁時滑道展開狀態會重設，待處理事件資料不受影響。
-PASS：一般提前載走若大於回報基數，現場應有數仍可呈現負值（例如 2−5＝−3），不隱藏資料異常。
-PASS：「00前已載走」獨立 preMidnightLoaded、最終籠／板總量、中班移除00前轉出等 0.047 功能完整保留。
-PASS：05:00 複製排除 NS6／TS1／TS3、NS15／NT20 滑道調整與 NT24 新增完整保留。
-PASS：0.050 makeReportText 與 0.047 完全一致，未碰快速回報複製邏輯。
+PASS：Schema由15升至16，只新增 specialInventory.confirmations；特殊盤點不保存第二份正式數量。
+PASS：特殊盤點中班／夜班／過境／現場確認會以同一operationId差額事件寫回原events。
+PASS：一般提前載走loaded不會被特殊盤點重設；00前已載走preMidnightLoaded不會被特殊盤點改動。
+PASS：NS2範例：中5＋夜5＋過3－一般提前載走10＝現場應有3；特殊盤點現場3後差異為0。
+PASS：特殊盤點確認籠／板即使為0也會保留actualConfirmed。
+PASS：確認簽章涵蓋morning／night／transit／loaded／online／secondary／actual；正常流程後續修改會使已確認自動失效。
+PASS：特殊盤點UI有預設／非預設載具頁籤、中／夜／過／現四欄、來源／載走／應有／差異預覽、未確認與有差異篩選。
+PASS：app-0.051.js、logic-0.051.js、service-worker-0.051.js JavaScript語法檢查通過。
+PASS：CSS由tinycss2完整解析，無stylesheet parse error。
+PASS：HTML／Manifest／Service Worker／版本化資產引用一致。
+PASS：既有Logic自動測試與專案非退版測試全部通過。
+PASS：0.048負數截斷未混入；stationStats仍為 expected = reportTotal - loaded。
+PASS：0.050現場盤點2×2、0.049二次分理、0.047 00前已載走、0.046 05:00排除／Nt24均保留。
+PASS：makeReportText、makeTransitReportText、stationStats、computeStatsOverview與0.050函式內容一致。

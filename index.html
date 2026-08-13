@@ -6,13 +6,13 @@
   <meta name="theme-color" content="#111827">
   <meta name="color-scheme" content="dark">
   <meta name="description" content="物流夜班籠車與棧板點貨、回倉、盤點與回報工具">
-  <link rel="manifest" href="manifest-0.050.json">
+  <link rel="manifest" href="manifest-0.051.json">
   <link rel="icon" href="icons/icon-192.png" sizes="192x192">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="styles-0.050.css">
-  <title>夜班點貨 0.050</title>
+  <link rel="stylesheet" href="styles-0.051.css">
+  <title>夜班點貨 0.051</title>
 </head>
-<body data-build-version="0.050">
+<body data-build-version="0.051">
   <div id="app" class="app-shell">
     <header class="topbar">
       <button id="menuBtn" class="icon-btn" aria-label="開啟功能選單">☰</button>
@@ -47,6 +47,7 @@
   <aside id="drawer" class="drawer" aria-hidden="true">
     <div class="drawer-head"><strong>其他功能</strong><button id="closeDrawerBtn" class="icon-btn" aria-label="關閉功能選單">✕</button></div>
     <button data-view="morning" class="drawer-item">中班數量</button>
+    <button data-view="special" class="drawer-item">特殊盤點</button>
     <button data-view="transit" class="drawer-item">過境貨</button>
     <button data-view="loaded" class="drawer-item">提前載走</button>
     <button data-view="online" class="drawer-item">二次分理</button>
@@ -54,7 +55,7 @@
     <button data-view="events" class="drawer-item">事件紀錄</button>
     <button data-view="shifts" class="drawer-item">班次／備份</button>
     <button id="wakeLockBtn" class="drawer-item">保持螢幕喚醒：關</button>
-    <div class="drawer-version">版本 0.050</div>
+    <div class="drawer-version">版本 0.051</div>
   </aside>
   <div id="drawerBackdrop" class="backdrop hidden"></div>
 
@@ -82,6 +83,6 @@
   </dialog>
 
   <div id="toast" class="toast hidden" role="status"></div>
-  <script src="logic-0.050.js"></script><script src="app-0.050.js"></script>
+  <script src="logic-0.051.js"></script><script src="app-0.051.js"></script>
 </body>
 </html>
