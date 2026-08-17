@@ -1,21 +1,23 @@
-0.055 automated verification
+0.056 automated verification
 Date: 2026-08-17
 
-PASS node --check app-0.055.js
-PASS node --check logic-0.055.js
-PASS node --check service-worker-0.055.js
+PASS node --check app-0.056.js
+PASS node --check logic-0.056.js
+PASS node --check service-worker-0.056.js
 PASS tests/test-logic.js
 PASS tests/test-project.js
 PASS CSS brace balance
+PASS CSS parser: 0 errors; floating +1 and transit default-carrier selectors parsed correctly
+PASS CSS contains no literal \n escape text
 PASS manifest JSON parse
-PASS index / manifest / service-worker / app / logic version references = 0.055
+PASS index / manifest / service-worker / app / logic version references = 0.056
 PASS E-series display order = YT1 > HT1 > ET3
 PASS 05:00 report tail = YT1 > HT1 > ET3
 PASS 05:00 exclusions remain NS6 / TS1 / TS3
 PASS NS2 default carrier = cage; NT3 default carrier = pallet
 PASS Schema remains 16
 
-0.055 scope
+0.056 scope
 - Night +1 random upward floating feedback; supports overlapping rapid taps.
 - Transit +1 and current return +1 use lower-intensity floating feedback.
 - Transit station card gets 3px pink left indicator only when selected carrier equals station default carrier.
