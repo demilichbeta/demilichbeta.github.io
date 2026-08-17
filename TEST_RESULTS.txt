@@ -1,19 +1,22 @@
-物流夜班點貨 PWA 0.054 自動測試結果
+0.055 automated verification
+Date: 2026-08-17
 
-PASS：Schema維持16；0.054沒有新增任何特殊盤點數量結構，正式數量仍唯一來自events。
-PASS：logic-0.054.js與0.053除版本標記外完全一致；本版未改中班／夜班／過境／二分／提前載走／現場計算公式。
-PASS：特殊盤點主卡片、模式提示、輸入格與預覽格移除0.053新增的額外色塊／左側粗色條，恢復0.052視覺層級。
-PASS：特殊盤點分類列使用與統計核對相同的stats-filter-row；系列選單文字為全部／N／T／C／S／E。
-PASS：「只顯示異常」與分類選單同列；「只顯示未確認」保留為下一列獨立按鈕。
-PASS：特殊盤點籠／板頁籤不再顯示「預」或「非預設」文字；預設載具只用較粗字重辨識。
-PASS：籠／板任一載具差異非0時，該載具頁籤仍直接顯示差異值。
-PASS：若尚未手動選載具，且只有另一載具差異非0，特殊盤點仍會自動打開該異常載具。
-PASS：特殊盤點草稿輸入時，兩載具差異徽記會即時重新計算。
-PASS：0.052二次分理「待轉先算應有、轉完成同步實盤」保留。
-PASS：0.052過境貨／回倉低亮度觸及回饋保留。
-PASS：0.050現場中／夜／過／總2×2資訊保留。
-PASS：00前已載走、05:00排除NS6／TS1／TS3、Nt24與負數應有值保留。
-PASS：app-0.054.js、logic-0.054.js、service-worker-0.054.js JavaScript語法檢查通過。
-PASS：styles-0.054.css由tinycss2完整解析，無stylesheet parse error。
-PASS：manifest-0.054.json解析與版本名稱正確。
-PASS：tests/test-logic.js與tests/test-project.js全部通過。
+PASS node --check app-0.055.js
+PASS node --check logic-0.055.js
+PASS node --check service-worker-0.055.js
+PASS tests/test-logic.js
+PASS tests/test-project.js
+PASS CSS brace balance
+PASS manifest JSON parse
+PASS index / manifest / service-worker / app / logic version references = 0.055
+PASS E-series display order = YT1 > HT1 > ET3
+PASS 05:00 report tail = YT1 > HT1 > ET3
+PASS 05:00 exclusions remain NS6 / TS1 / TS3
+PASS NS2 default carrier = cage; NT3 default carrier = pallet
+PASS Schema remains 16
+
+0.055 scope
+- Night +1 random upward floating feedback; supports overlapping rapid taps.
+- Transit +1 and current return +1 use lower-intensity floating feedback.
+- Transit station card gets 3px pink left indicator only when selected carrier equals station default carrier.
+- YT / HT / ET order unified to YT -> HT -> ET across common group/report lists.
