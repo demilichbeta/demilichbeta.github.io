@@ -1,22 +1,15 @@
-0.062 automated verification
-Date: 2026-08-19
+0.063 automated verification
 
-PASS node --check app-0.062.js
-PASS node --check logic-0.062.js
-PASS node --check service-worker-0.062.js
-PASS tests/test-logic.js
-PASS tests/test-project.js
-PASS tinycss2 CSS parse: 0 errors
-PASS manifest / index / service worker version consistency
-PASS Schema remains 17
-PASS return total UI uses 3 complete rows with full-width separators
-PASS return total card has top spacing from source grid
-PASS lower 回倉總數含00前 uses full-width fixed-column alignment
-PASS lower section includes all fixed sources including zero
-PASS upper 00-after return report remains zero-suppressed and ordered
-PASS 00後合計 and 今日合計 calculations unchanged
+PASS node --check app-0.063.js
+PASS node --check logic-0.063.js
+PASS node --check service-worker-0.063.js
+PASS node tests/test-logic.js
+PASS node tests/test-project.js
 
-0.062 scope
-- UI-only repair for return total summary card.
-- Copy-format-only alignment change for the lower combined-return section.
-- No return-count data-model changes.
+0.063 scope
+- Return-report lower summary merges NS1 + NS2 + NS5 into one NS row.
+- Pallet and cage totals are aggregated independently.
+- Lower summary no longer lists NS1 / NS2 / NS5 separately.
+- Upper 00-after detail remains station-specific.
+- Today total remains unchanged and is not double-counted.
+- Schema remains 17.
