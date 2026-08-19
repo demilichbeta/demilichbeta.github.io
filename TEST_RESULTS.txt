@@ -1,24 +1,23 @@
-0.056 automated verification
-Date: 2026-08-17
+0.059 automated verification
+Date: 2026-08-19
 
-PASS node --check app-0.056.js
-PASS node --check logic-0.056.js
-PASS node --check service-worker-0.056.js
+PASS node --check app-0.059.js
+PASS node --check logic-0.059.js
+PASS node --check service-worker-0.059.js
 PASS tests/test-logic.js
 PASS tests/test-project.js
-PASS CSS brace balance
-PASS CSS parser: 0 errors; floating +1 and transit default-carrier selectors parsed correctly
-PASS CSS contains no literal \n escape text
-PASS manifest JSON parse
-PASS index / manifest / service-worker / app / logic version references = 0.056
-PASS E-series display order = YT1 > HT1 > ET3
-PASS 05:00 report tail = YT1 > HT1 > ET3
-PASS 05:00 exclusions remain NS6 / TS1 / TS3
-PASS NS2 default carrier = cage; NT3 default carrier = pallet
-PASS Schema remains 16
+PASS tinycss2 CSS parse: 0 errors
+PASS Schema migration: 16 -> 17
+PASS preMidnightReturns kept separate from 00-after returnEvents
+PASS DC2 example: 00-before 2 pallet + 03:00 2 pallet = combined 4 pallet
+PASS zero fixed sources shown in combined return summary
+PASS only-00-before source shown in combined return summary
+PASS final total uses 00-before + 00-after counts
 
-0.056 scope
-- Night +1 random upward floating feedback; supports overlapping rapid taps.
-- Transit +1 and current return +1 use lower-intensity floating feedback.
-- Transit station card gets 3px pink left indicator only when selected carrier equals station default carrier.
-- YT / HT / ET order unified to YT -> HT -> ET across common group/report lists.
+0.059 scope
+- Add collapsible 00前回倉 section to 回倉紀錄.
+- 00前回倉 uses the full return-source list and supports cage/pallet selection.
+- Keep 00-before counts separate from 30-minute returnEvents.
+- Replace the old bottom report total with a separated 回倉總數含00前 section.
+- Combined source rows show 0板 0籠 when zero.
+- Final line is 今日合計 X板X籠 and includes 00-before counts.
