@@ -1,22 +1,24 @@
-0.060 automated verification
+0.061 automated verification
 Date: 2026-08-19
 
-PASS node --check app-0.060.js
-PASS node --check logic-0.060.js
-PASS node --check service-worker-0.060.js
+PASS node --check app-0.061.js
+PASS node --check logic-0.061.js
+PASS node --check service-worker-0.061.js
 PASS tests/test-logic.js
 PASS tests/test-project.js
 PASS tinycss2 CSS parse: 0 errors
+PASS manifest / index / service worker version consistency
 PASS Schema remains 17
-PASS 00前回倉 UI order matches return report order
-PASS upper return report omits zero sources
-PASS upper order: DC2 > DC4 > DC6 > DC9 > DC11 > NS1 > NS2 > NS5 > TS5 > SDC > DC12 > DC7 > CS4
+PASS upper 00-after return report uses pallet→cage order
+PASS zero sources remain suppressed in upper 00-after section
+PASS separator line removed and replaced with 00後合計 X板X籠
 PASS lower 回倉總數含00前 still lists all fixed sources including zero
-PASS 00-before and 00-after return data remain separate
+PASS 今日合計 remains 00前 + 00後
+PASS 00前回倉 carrier buttons enlarged
+PASS 00前回倉 − / count / + stepper UI refined without data-logic changes
 
-0.060 scope
-- Unify 00前回倉 input order with return-copy order.
-- Add NS5 to the fixed report order.
-- Suppress zero sources only in the upper 00-after report section.
-- Keep zero rows in the lower combined return-total section.
-- Minor UI refinement for the 00前回倉 control/list area.
+0.061 scope
+- Change upper return-copy quantity order from cage→pallet to pallet→cage.
+- Replace separator line with 00後合計 X板X籠.
+- Keep full combined return section and 今日合計 behavior unchanged.
+- Refine 00前回倉 carrier switch and stepper UI only.
