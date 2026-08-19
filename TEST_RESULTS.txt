@@ -1,24 +1,22 @@
-0.061 automated verification
+0.062 automated verification
 Date: 2026-08-19
 
-PASS node --check app-0.061.js
-PASS node --check logic-0.061.js
-PASS node --check service-worker-0.061.js
+PASS node --check app-0.062.js
+PASS node --check logic-0.062.js
+PASS node --check service-worker-0.062.js
 PASS tests/test-logic.js
 PASS tests/test-project.js
 PASS tinycss2 CSS parse: 0 errors
 PASS manifest / index / service worker version consistency
 PASS Schema remains 17
-PASS upper 00-after return report uses pallet→cage order
-PASS zero sources remain suppressed in upper 00-after section
-PASS separator line removed and replaced with 00後合計 X板X籠
-PASS lower 回倉總數含00前 still lists all fixed sources including zero
-PASS 今日合計 remains 00前 + 00後
-PASS 00前回倉 carrier buttons enlarged
-PASS 00前回倉 − / count / + stepper UI refined without data-logic changes
+PASS return total UI uses 3 complete rows with full-width separators
+PASS return total card has top spacing from source grid
+PASS lower 回倉總數含00前 uses full-width fixed-column alignment
+PASS lower section includes all fixed sources including zero
+PASS upper 00-after return report remains zero-suppressed and ordered
+PASS 00後合計 and 今日合計 calculations unchanged
 
-0.061 scope
-- Change upper return-copy quantity order from cage→pallet to pallet→cage.
-- Replace separator line with 00後合計 X板X籠.
-- Keep full combined return section and 今日合計 behavior unchanged.
-- Refine 00前回倉 carrier switch and stepper UI only.
+0.062 scope
+- UI-only repair for return total summary card.
+- Copy-format-only alignment change for the lower combined-return section.
+- No return-count data-model changes.
