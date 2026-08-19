@@ -1,23 +1,22 @@
-0.059 automated verification
+0.060 automated verification
 Date: 2026-08-19
 
-PASS node --check app-0.059.js
-PASS node --check logic-0.059.js
-PASS node --check service-worker-0.059.js
+PASS node --check app-0.060.js
+PASS node --check logic-0.060.js
+PASS node --check service-worker-0.060.js
 PASS tests/test-logic.js
 PASS tests/test-project.js
 PASS tinycss2 CSS parse: 0 errors
-PASS Schema migration: 16 -> 17
-PASS preMidnightReturns kept separate from 00-after returnEvents
-PASS DC2 example: 00-before 2 pallet + 03:00 2 pallet = combined 4 pallet
-PASS zero fixed sources shown in combined return summary
-PASS only-00-before source shown in combined return summary
-PASS final total uses 00-before + 00-after counts
+PASS Schema remains 17
+PASS 00前回倉 UI order matches return report order
+PASS upper return report omits zero sources
+PASS upper order: DC2 > DC4 > DC6 > DC9 > DC11 > NS1 > NS2 > NS5 > TS5 > SDC > DC12 > DC7 > CS4
+PASS lower 回倉總數含00前 still lists all fixed sources including zero
+PASS 00-before and 00-after return data remain separate
 
-0.059 scope
-- Add collapsible 00前回倉 section to 回倉紀錄.
-- 00前回倉 uses the full return-source list and supports cage/pallet selection.
-- Keep 00-before counts separate from 30-minute returnEvents.
-- Replace the old bottom report total with a separated 回倉總數含00前 section.
-- Combined source rows show 0板 0籠 when zero.
-- Final line is 今日合計 X板X籠 and includes 00-before counts.
+0.060 scope
+- Unify 00前回倉 input order with return-copy order.
+- Add NS5 to the fixed report order.
+- Suppress zero sources only in the upper 00-after report section.
+- Keep zero rows in the lower combined return-total section.
+- Minor UI refinement for the 00前回倉 control/list area.
