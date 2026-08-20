@@ -1,15 +1,16 @@
-0.063 automated verification
+0.064 automated verification
 
-PASS node --check app-0.063.js
-PASS node --check logic-0.063.js
-PASS node --check service-worker-0.063.js
+PASS node --check app-0.064.js
+PASS node --check logic-0.064.js
+PASS node --check service-worker-0.064.js
 PASS node tests/test-logic.js
 PASS node tests/test-project.js
 
-0.063 scope
-- Return-report lower summary merges NS1 + NS2 + NS5 into one NS row.
-- Pallet and cage totals are aggregated independently.
-- Lower summary no longer lists NS1 / NS2 / NS5 separately.
-- Upper 00-after detail remains station-specific.
-- Today total remains unchanged and is not double-counted.
-- Schema remains 17.
+0.064 scope
+- Custom return source can be added per shift (example: CS3).
+- Custom source is available to pre-midnight and after-midnight return flows.
+- Upper return report includes custom source only when 00-after quantity exists.
+- Lower total report includes the custom source and combines 00-before + 00-after.
+- Daily totals include custom source without double-counting.
+- Delete is blocked while any 00-before or 00-after quantity remains.
+- Schema upgraded from 17 to 18; quantities remain in existing preMidnightReturns / returnEvents structures.
