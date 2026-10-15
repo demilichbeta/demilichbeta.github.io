@@ -1,16 +1,16 @@
-0.064 automated verification
+0.065 automated verification｜2026-10-15
 
-PASS node --check app-0.064.js
-PASS node --check logic-0.064.js
-PASS node --check service-worker-0.064.js
+PASS node --check app-0.065.js
+PASS node --check logic-0.065.js
+PASS node --check service-worker-0.065.js
 PASS node tests/test-logic.js
 PASS node tests/test-project.js
+PASS tinycss2 CSS parse
+PASS targeted behavior: TS3 default=cage
+PASS targeted behavior: Nt24 chute9 / Nt20 chute10
+PASS targeted behavior: DC10 + CS3 fixed returns
+PASS migration: legacy custom CS3/DC10 become fixed without losing pre-midnight counts
+PASS night undo UI/handler removed
+PASS night quick actions = 3 equal buttons with event shortcut
 
-0.064 scope
-- Custom return source can be added per shift (example: CS3).
-- Custom source is available to pre-midnight and after-midnight return flows.
-- Upper return report includes custom source only when 00-after quantity exists.
-- Lower total report includes the custom source and combines 00-before + 00-after.
-- Daily totals include custom source without double-counting.
-- Delete is blocked while any 00-before or 00-after quantity remains.
-- Schema upgraded from 17 to 18; quantities remain in existing preMidnightReturns / returnEvents structures.
+Schema remains 18.
