@@ -1,16 +1,11 @@
-0.065 automated verification｜2026-10-15
+0.067 automated verification｜2026-10-29
 
-PASS node --check app-0.065.js
-PASS node --check logic-0.065.js
-PASS node --check service-worker-0.065.js
+PASS node --check app-0.067.js
+PASS node --check logic-0.067.js
+PASS node --check service-worker-0.067.js
 PASS node tests/test-logic.js
 PASS node tests/test-project.js
-PASS tinycss2 CSS parse
-PASS targeted behavior: TS3 default=cage
-PASS targeted behavior: Nt24 chute9 / Nt20 chute10
-PASS targeted behavior: DC10 + CS3 fixed returns
-PASS migration: legacy custom CS3/DC10 become fixed without losing pre-midnight counts
-PASS night undo UI/handler removed
-PASS night quick actions = 3 equal buttons with event shortcut
-
-Schema remains 18.
+PASS CSS parse
+PASS version consistency
+PASS 恢復初始配置為草稿操作，未按完成前不寫入已保存滑道配置
+PASS Shift Schema 仍為18
