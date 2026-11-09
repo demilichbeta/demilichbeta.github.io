@@ -1,11 +1,15 @@
-0.067 automated verification｜2026-10-29
+0.069 automated verification｜2026-11-09
 
-PASS node --check app-0.067.js
-PASS node --check logic-0.067.js
-PASS node --check service-worker-0.067.js
+PASS node --check app-0.069.js
+PASS node --check logic-0.069.js
+PASS node --check service-worker-0.069.js
 PASS node tests/test-logic.js
 PASS node tests/test-project.js
-PASS CSS parse
-PASS version consistency
-PASS 恢復初始配置為草稿操作，未按完成前不寫入已保存滑道配置
+PASS CSS parser 0 errors
+PASS 11/07 滑道7～12初始配置符合確認表
+PASS 43站完整且無重複／遺失
+PASS CS5／NS10沿用既有CT5／NT10內部代碼，歷史資料不分裂
+PASS 舊內建預設配置可自動升級到11/07新初始配置
+PASS 手動自訂滑道配置不會被0.069強制覆蓋
+PASS 「恢復初始配置」使用11/07新基準
 PASS Shift Schema 仍為18
