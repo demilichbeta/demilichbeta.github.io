@@ -6,13 +6,13 @@
   <meta name="theme-color" content="#111827">
   <meta name="color-scheme" content="dark">
   <meta name="description" content="物流夜班籠車與棧板點貨、回倉、盤點與回報工具">
-  <link rel="manifest" href="manifest-0.069.json">
+  <link rel="manifest" href="manifest-0.073.json">
   <link rel="icon" href="icons/icon-192.png" sizes="192x192">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="styles-0.069.css">
-  <title>夜班點貨 0.069</title>
+  <link rel="stylesheet" href="styles-0.073.css">
+  <title>夜班點貨 0.073</title>
 </head>
-<body data-build-version="0.069">
+<body data-build-version="0.073">
   <div id="app" class="app-shell">
     <header class="topbar">
       <button id="menuBtn" class="icon-btn" aria-label="開啟功能選單">☰</button>
@@ -51,7 +51,7 @@
     <button data-view="stats" class="drawer-item">統計核對</button>
     <button data-view="shifts" class="drawer-item">班次／備份</button>
     <button id="wakeLockBtn" class="drawer-item">保持螢幕喚醒：關</button>
-    <div class="drawer-version">版本 0.069</div>
+    <div class="drawer-version">版本 0.073</div>
   </aside>
   <div id="drawerBackdrop" class="backdrop hidden"></div>
 
@@ -74,11 +74,11 @@
       <input type="hidden" id="quantityStation"><input type="hidden" id="quantityCategory"><input type="hidden" id="quantityCarrier"><input type="hidden" id="quantityDirection" value="1"><input type="hidden" id="quantityMode" value="add">
       <div id="quantityQuickButtons" class="quick-qty"><button type="button" data-qty="1">1</button><button type="button" data-qty="2">2</button><button type="button" data-qty="5">5</button></div>
       <label>自訂數量<input id="customQty" type="number" min="1" step="1" inputmode="numeric" placeholder="輸入數量"></label>
-      <div class="dialog-actions"><button value="cancel" class="secondary-btn">取消</button><button id="saveQuantityBtn" value="default" class="primary-btn">加入</button></div>
+      <div class="dialog-actions"><button id="cancelQuantityBtn" type="button" class="secondary-btn">取消</button><button id="saveQuantityBtn" value="default" class="primary-btn">加入</button></div>
     </form>
   </dialog>
 
   <div id="toast" class="toast hidden" role="status"></div>
-  <script src="logic-0.069.js"></script><script src="app-0.069.js"></script>
+  <script src="logic-0.073.js"></script><script src="app-0.073.js"></script>
 </body>
 </html>
