@@ -1,7 +1,7 @@
-0.073 verification
-PASS - Logic tests
-PASS - Project non-regression tests
-PASS - JavaScript syntax
-PASS - CSS parse
-PASS - Version/service worker/manifest consistency
-PASS - 00前回倉 direct numeric input audit: 0→128 (+128), 128→35 (-93)
+0.074 verification
+- JavaScript syntax: PASS
+- Logic tests: PASS
+- Project/non-regression tests: PASS
+- Chute station set: PASS (43 unique stations, same set as 0.073)
+- Runtime version references: PASS
+- Shift schema: 19 (unchanged)
