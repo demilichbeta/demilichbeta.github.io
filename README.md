@@ -1,14 +1,14 @@
-# 物流夜班點貨 PWA 0.074
+# 物流夜班點貨 PWA 0.075
 
-## 0.074 主要變更
+## 0.075 主要變更
 
 ### 夜班產出默認滑道更新
 
 依最新現場配置表更新 7～12 滑道正式初始站所配置。
 
-- 滑道7：NS2、Nt3、NS5、NS6、Nt8、Nt9
-- 滑道8：Ct6、CS12、Nt10、Nt11、Nt12、Nt13、NS15
-- 滑道9：Tt2、Tt6、Nt16、Nt17、NS18、Nt19、Nt20
+- 滑道7：NS2、Nt3、NS5、NS6、Nt8、Nt17
+- 滑道8：Ct6、CS12、Nt9、Nt10、Nt11、Nt12、Nt13
+- 滑道9：Tt2、Tt6、NS15、Nt16、NS18、Nt19、Nt20
 - 滑道10：Ct2、CS3、Nt21、Nt22、Nt23、Nt24、Yt1、Ht1
 - 滑道11：CS4、Ct5、TS1、TS3、TS5、TS11、Et3
 - 滑道12：SS3、St4、St5、St6、SS7、KS1、Kt2、KS3
@@ -26,8 +26,8 @@
 
 ## 版本資產
 
-- `styles-0.074.css`
-- `logic-0.074.js`
-- `app-0.074.js`
-- `manifest-0.074.json`
-- `service-worker-0.074.js`
+- `styles-0.075.css`
+- `logic-0.075.js`
+- `app-0.075.js`
+- `manifest-0.075.json`
+- `service-worker-0.075.js`
